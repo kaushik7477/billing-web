@@ -1,0 +1,24 @@
+{
+  "name": "hotel-multi-billing-suite",
+  "version": "2.0.0",
+  "description": "Multi-Hotel Billing System with Super Admin Financial Analytics & PIN Management in MERN Stack",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "server": "node backend/server.js",
+    "client": "npm run dev --prefix frontend",
+    "build": "npm run build --prefix frontend",
+    "dev": "node backend/server.js"
+  },
+  "keywords": [
+    "hotel-billing",
+    "mern",
+    "react",
+    "express",
+    "mongodb",
+    "invoice-generator",
+    "digha-hotels"
+  ],
+  "author": "Hotel Multi-Property Hospitality",
+  "license": "MIT"
+}

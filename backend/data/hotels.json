@@ -1,0 +1,99 @@
+[
+  {
+    "hotelId": "hotel-1",
+    "name": "Hotel Rojana",
+    "subText": "Organised by Maa Tara Enterprise",
+    "address": "New Digha, Mini Holiday Home Sector, Purba Medinipur, W.B.",
+    "phone": "9046926801",
+    "gstin": "19ABYFM7409E1Z0",
+    "managerPin": "1111",
+    "themeColor": "#1a365d",
+    "tagline": "Premier Beachside Luxury in New Digha",
+    "roomTypes": [
+      {
+        "name": "Standard Room",
+        "defaultRent": 1500
+      },
+      {
+        "name": "Deluxe Room",
+        "defaultRent": 2200
+      },
+      {
+        "name": "Super Deluxe Room",
+        "defaultRent": 3000
+      },
+      {
+        "name": "Suite Room",
+        "defaultRent": 4500
+      }
+    ],
+    "signatureImage": "manager-sign.png",
+    "isActive": true,
+    "createdAt": "2026-11-10T18:46:25.013Z",
+    "updatedAt": "2026-11-10T18:52:55.335Z"
+  },
+  {
+    "hotelId": "hotel-2",
+    "name": "Hotel Sagar Priya",
+    "subText": "A Unit of Sagar Hospitality & Resorts",
+    "address": "Old Digha, Near Sea Beach Road, Purba Medinipur, W.B.",
+    "phone": "9832104567",
+    "gstin": "19AAACH1234F1Z5",
+    "managerPin": "2222",
+    "themeColor": "#065f46",
+    "tagline": "Oceanfront Elegance & Serenity",
+    "roomTypes": [
+      {
+        "name": "Economy AC Room",
+        "defaultRent": 1400
+      },
+      {
+        "name": "Premium Sea View",
+        "defaultRent": 2600
+      },
+      {
+        "name": "Executive Deluxe",
+        "defaultRent": 3500
+      },
+      {
+        "name": "Family Suite (4 Bed)",
+        "defaultRent": 5000
+      }
+    ],
+    "signatureImage": "manager-sign.png",
+    "isActive": true,
+    "createdAt": "2026-11-10T18:46:25.014Z"
+  },
+  {
+    "hotelId": "hotel-3",
+    "name": "Hotel Sea Pearl",
+    "subText": "Managed by Tara Holidays Group",
+    "address": "Foreshore Road, Mini Holiday Sector, Digha, W.B.",
+    "phone": "9733445566",
+    "gstin": "19BBYPS5678K1Z2",
+    "managerPin": "3333",
+    "themeColor": "#4338ca",
+    "tagline": "Modern Hospitality with Coastal Charm",
+    "roomTypes": [
+      {
+        "name": "Standard Non-AC",
+        "defaultRent": 1200
+      },
+      {
+        "name": "Deluxe AC Room",
+        "defaultRent": 2400
+      },
+      {
+        "name": "Super Deluxe AC",
+        "defaultRent": 3200
+      },
+      {
+        "name": "Royal Suite Room",
+        "defaultRent": 4800
+      }
+    ],
+    "signatureImage": "manager-sign.png",
+    "isActive": true,
+    "createdAt": "2026-11-10T18:46:25.015Z"
+  }
+]
