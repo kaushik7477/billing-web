@@ -479,7 +479,7 @@ export default function SuperAdminDashboard({ token, onLogout, onNavigateManager
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
                 <span className="font-bold text-sm text-slate-800 font-mono">
-                  {selectedBillForPreview.isNonGST ? 'Non-GST Bill Preview • ' : 'Tax Invoice & Guest Bill Preview • '}
+                  {selectedBillForPreview.isNonGST ? 'Bill Preview • ' : 'Tax Invoice & Guest Bill Preview • '}
                   {selectedBillForPreview.invoiceNo}
                 </span>
               </div>

@@ -372,14 +372,14 @@
     "floor": 1,
     "roomType": "Standard Non-AC",
     "defaultRent": 1200,
-    "status": "available",
+    "status": "maintenance",
     "currentGuestName": "",
     "currentGuestPhone": "",
     "currentBillId": "",
     "currentInvoiceNo": "",
     "checkInDateTime": "",
     "expectedCheckOutDateTime": "",
-    "maintenanceUntil": null,
+    "maintenanceUntil": "2026-11-14T08:20:49.328Z",
     "activeIssues": []
   },
   {

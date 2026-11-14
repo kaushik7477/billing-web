@@ -1,1 +1,57 @@
-[]
+[
+  {
+    "invoiceNo": "HSP2/26/00002",
+    "billDate": "14-Nov-2026",
+    "customerName": "kakakak",
+    "countryCode": "+91",
+    "customerPhone": "7899877899",
+    "idType": "Aadhaar Card",
+    "idNumber": "",
+    "roomType": "Standard Non-AC",
+    "roomNumber": "101",
+    "selectedRooms": [
+      {
+        "roomNumber": "101",
+        "roomType": "Standard Non-AC",
+        "rentPerDay": 1200
+      }
+    ],
+    "numPersons": 2,
+    "checkInDate": "2026-11-14",
+    "checkOutDate": "2026-11-15",
+    "checkInDateTime": "2026-11-14T12:00",
+    "checkOutDateTime": "2026-11-15T11:00",
+    "numDays": 1,
+    "roomRentPerDay": 1200,
+    "extraCharges": 0,
+    "advancePaid": 0,
+    "paymentMode": "Cash",
+    "remarks": "Thank you for choosing to stay with us. Visit again!",
+    "showManagerSign": true,
+    "roomsList": [
+      {
+        "roomNumber": "101",
+        "roomType": "Standard Non-AC",
+        "rentPerDay": 1200,
+        "days": 1,
+        "total": 1200
+      }
+    ],
+    "baseAccommodation": 1200,
+    "subtotal": 1200,
+    "cgst": 0,
+    "sgst": 0,
+    "totalGst": 0,
+    "netTotal": 1200,
+    "balanceDue": 1200,
+    "amountInWords": "One Thousand Two Hundred Rupees Only",
+    "hotelId": "hotel-3",
+    "hotelName": "Hotel Sea Pearl",
+    "paymentStatus": "DUE",
+    "billStatus": "SAVED",
+    "isNonGST": true,
+    "id": "bill-1794642645689-348",
+    "createdAt": "2026-11-14T07:50:45.689Z",
+    "billDateTime": "2026-11-14T07:50:45.689Z"
+  }
+]

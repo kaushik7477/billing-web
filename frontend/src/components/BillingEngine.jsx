@@ -839,7 +839,7 @@ export default function BillingEngine({
                       {/* Divider */}
                       <div className="my-1 border-t border-dashed border-slate-200" />
 
-                      {/* Toggle: Non-GST / Meta Data Bill (PIN PROTECTED) */}
+                      {/* Toggle: Meta Data Layout (PIN PROTECTED) */}
                       <label className={`flex items-center justify-between p-2.5 rounded-lg cursor-pointer transition ${
                         billSettings.isNonGST ? 'bg-red-50 border border-red-200' : 'hover:bg-slate-50'
                       }`}>
@@ -853,14 +853,14 @@ export default function BillingEngine({
                             <div className={`text-xs font-bold ${
                               billSettings.isNonGST ? 'text-red-700' : 'text-slate-800'
                             }`}>
-                              Meta Data (Non-GST Bill)
+                              Meta Data
                               {!billSettings.isNonGST && <span className="ml-1 text-[9px] text-slate-400 font-normal">🔒 PIN required</span>}
                               {billSettings.isNonGST && <span className="ml-1 text-[9px] text-red-500 font-semibold">ACTIVE</span>}
                             </div>
                             <div className="text-[10px] text-slate-500">
                               {billSettings.isNonGST
-                                ? 'GST hidden — bill excluded from Reports & Tax'
-                                : 'Remove GST from bill (hides from GSTR-1 reports)'}
+                                ? 'Internal simplified bill layout active'
+                                : 'Switch to simplified bill layout'}
                             </div>
                           </div>
                         </div>
@@ -891,28 +891,28 @@ export default function BillingEngine({
       </header>
 
       {/* ============================================================ */}
-      {/* PIN VERIFICATION MODAL (for Non-GST Meta Data unlock)        */}
+      {/* PIN VERIFICATION MODAL (for Meta Data unlock)                */}
       {/* ============================================================ */}
       {showPinModal && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-sm mx-4 overflow-hidden">
             {/* Modal Header */}
-            <div className="px-6 py-4 bg-gradient-to-r from-red-700 to-red-500 text-white">
+            <div className="px-6 py-4 bg-gradient-to-r from-slate-800 to-slate-700 text-white">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
                   <Settings className="w-5 h-5" />
                 </div>
                 <div>
-                  <div className="font-bold text-sm">Non-GST Mode — PIN Required</div>
-                  <div className="text-xs text-red-100 mt-0.5">Enter your manager PIN to unlock</div>
+                  <div className="font-bold text-sm">Meta Data Mode — PIN Required</div>
+                  <div className="text-xs text-slate-200 mt-0.5">Enter manager PIN to unlock</div>
                 </div>
               </div>
             </div>
 
             {/* Modal Body */}
             <div className="p-6 space-y-4">
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 font-medium">
-                ⚠️ Enabling this will remove GST details from the bill and hide it from Reports &amp; Tax section.
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 font-medium">
+                🔒 Switching to confidential simplified bill layout mode.
               </div>
 
               <div>
@@ -925,7 +925,7 @@ export default function BillingEngine({
                   onChange={e => { setPinInput(e.target.value); setPinError(''); }}
                   onKeyDown={e => e.key === 'Enter' && handlePinSubmit()}
                   placeholder="Enter PIN"
-                  className="w-full px-4 py-3 text-center text-xl font-mono font-bold tracking-[0.4em] bg-slate-50 border-2 border-slate-300 rounded-xl focus:outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100"
+                  className="w-full px-4 py-3 text-center text-xl font-mono font-bold tracking-[0.4em] bg-slate-50 border-2 border-slate-300 rounded-xl focus:outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                   autoFocus
                 />
                 {pinError && (
@@ -945,9 +945,9 @@ export default function BillingEngine({
                   type="button"
                   onClick={handlePinSubmit}
                   disabled={pinLoading}
-                  className="flex-1 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition shadow-sm cursor-pointer disabled:opacity-60"
+                  className="flex-1 py-2.5 text-sm font-bold text-white bg-slate-800 hover:bg-black rounded-xl transition shadow-sm cursor-pointer disabled:opacity-60"
                 >
-                  {pinLoading ? 'Verifying...' : 'Unlock Non-GST'}
+                  {pinLoading ? 'Verifying...' : 'Unlock Meta Data'}
                 </button>
               </div>
             </div>

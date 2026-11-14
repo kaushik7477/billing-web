@@ -84,47 +84,45 @@ export default function InvoicePreview({ hotel, billData, calculations, billSett
       className="bg-white w-full max-w-[780px] p-6 sm:p-8 rounded-lg shadow-md border-2 border-brand-800 text-slate-900 relative print-exact"
     >
       {/* Subtle Authentic Watermark */}
-      <div className="invoice-watermark no-print">{hotel.name.toUpperCase()}</div>
+      <div className="invoice-watermark no-print">{isNonGST ? 'HOTEL BILL' : hotel.name.toUpperCase()}</div>
 
       {/* 1. Header Section: Hotel Branding & Identification */}
       <header className="invoice-header text-center pb-3 border-b-2 border-brand-800 relative">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-[11px] font-semibold text-brand-900 mb-1 border-b border-brand-200 pb-1">
-          {!isNonGST ? (
+        {!isNonGST && (
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-[11px] font-semibold text-brand-900 mb-1 border-b border-brand-200 pb-1">
             <div className="flex items-center gap-1.5 justify-center sm:justify-start">
               <i className="fa-solid fa-file-invoice text-brand-700"></i>
               <span>GSTIN: <strong className="font-mono tracking-wider">{hotel.gstin}</strong></span>
             </div>
-          ) : (
-            <div className="flex items-center gap-1.5 justify-center sm:justify-start text-slate-400 italic text-[10px]">
-              Non-GST Bill / Cash Receipt
+            <div className="flex items-center gap-1.5 justify-center sm:justify-end">
+              <i className="fa-solid fa-phone text-brand-700"></i>
+              <span>Mobile: <strong className="tracking-wide">{hotel.phone}</strong></span>
             </div>
-          )}
-          <div className="flex items-center gap-1.5 justify-center sm:justify-end">
-            <i className="fa-solid fa-phone text-brand-700"></i>
-            <span>Mobile: <strong className="tracking-wide">{hotel.phone}</strong></span>
           </div>
-        </div>
+        )}
 
         <div className="py-1">
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-wider text-brand-800 font-serif uppercase leading-tight">
-            {hotel.name}
+            {isNonGST ? 'HOTEL BILL' : hotel.name}
           </h1>
-          {hotel.subText && (
+          {!isNonGST && hotel.subText && (
             <p className="text-xs sm:text-sm font-semibold tracking-wide text-brand-700 italic mt-0.5">
               {hotel.subText}
             </p>
           )}
-          <p className="text-[11px] sm:text-xs text-slate-700 mt-1 font-medium max-w-xl mx-auto leading-relaxed">
-            {hotel.address}
-          </p>
+          {!isNonGST && hotel.address && (
+            <p className="text-[11px] sm:text-xs text-slate-700 mt-1 font-medium max-w-xl mx-auto leading-relaxed">
+              {hotel.address}
+            </p>
+          )}
         </div>
 
-        {/* Tax Invoice Banner Strip - changes to Bill/Receipt when Non-GST */}
-        <div className={`mt-2.5 inline-block text-white text-[11px] sm:text-xs font-bold px-6 py-1 rounded tracking-widest uppercase shadow-sm print-exact ${
-          isNonGST ? 'bg-slate-600' : 'bg-brand-800'
-        }`}>
-          {isNonGST ? 'Guest Bill / Cash Receipt' : 'Tax Invoice / Guest Bill'}
-        </div>
+        {/* Tax Invoice Banner Strip (only for regular Tax Invoices) */}
+        {!isNonGST && (
+          <div className="mt-2.5 inline-block bg-brand-800 text-white text-[11px] sm:text-xs font-bold px-6 py-1 rounded tracking-widest uppercase shadow-sm print-exact">
+            Tax Invoice / Guest Bill
+          </div>
+        )}
       </header>
 
       {/* 2. Serial Number & Date Bar */}
@@ -391,31 +389,33 @@ export default function InvoicePreview({ hotel, billData, calculations, billSett
 
         {/* Right: Manager / Stamp Signature Area */}
         <div className="text-center w-52 relative">
-          <div className={`h-16 flex items-center justify-center relative ${showManagerSign ? '' : 'invisible'}`}>
-            <img 
-              src={`data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='80' viewBox='0 0 240 80'><g fill='none' stroke='%231a365d'><circle cx='50' cy='40' r='32' stroke-width='2' stroke-dasharray='4 2'/><circle cx='50' cy='40' r='27' stroke-width='1'/><text x='50' y='36' font-size='7' font-weight='bold' fill='%231a365d' text-anchor='middle' stroke='none'>${encodeURIComponent(hotel.name.toUpperCase())}</text><text x='50' y='46' font-size='6' fill='%231a365d' text-anchor='middle' stroke='none'>★ DIGHA ★</text><path d='M95 50 Q110 20 125 45 T155 35 T180 55 T215 30' stroke-width='2.5' stroke-linecap='round'/><path d='M90 60 Q150 55 220 52' stroke-width='1.8' stroke-linecap='round'/></g></svg>`}
-              alt="Manager Signature & Stamp" 
-              className="max-h-16 object-contain pointer-events-none"
-            />
+          <div className={`h-16 flex items-center justify-center relative ${!isNonGST && showManagerSign ? '' : 'invisible'}`}>
+            {!isNonGST && (
+              <img 
+                src={`data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='80' viewBox='0 0 240 80'><g fill='none' stroke='%231a365d'><circle cx='50' cy='40' r='32' stroke-width='2' stroke-dasharray='4 2'/><circle cx='50' cy='40' r='27' stroke-width='1'/><text x='50' y='36' font-size='7' font-weight='bold' fill='%231a365d' text-anchor='middle' stroke='none'>${encodeURIComponent(hotel.name.toUpperCase())}</text><text x='50' y='46' font-size='6' fill='%231a365d' text-anchor='middle' stroke='none'>★ DIGHA ★</text><path d='M95 50 Q110 20 125 45 T155 35 T180 55 T215 30' stroke-width='2.5' stroke-linecap='round'/><path d='M90 60 Q150 55 220 52' stroke-width='1.8' stroke-linecap='round'/></g></svg>`}
+                alt="Manager Signature & Stamp" 
+                className="max-h-16 object-contain pointer-events-none"
+              />
+            )}
           </div>
           <div className="border-t border-slate-700 pt-1 font-bold text-brand-900 uppercase tracking-wider text-[11px]">
             Manager
           </div>
-          <div className="text-[9.5px] text-slate-600 font-semibold tracking-tight">
-            For {hotel.name} / Maa Tara Ent.
-          </div>
+          {!isNonGST && (
+            <div className="text-[9.5px] text-slate-600 font-semibold tracking-tight">
+              For {hotel.name} / Maa Tara Ent.
+            </div>
+          )}
         </div>
 
       </div>
 
       {/* Bottom Micro Details */}
-      <div className="mt-4 pt-1.5 border-t border-slate-200 text-center text-[9px] text-slate-400 font-mono">
-        {!isNonGST ? (
-          <>Generated via {hotel.name} Billing Engine &bull; GSTIN: {hotel.gstin} &bull; Computer Generated Tax Invoice</>
-        ) : (
-          <>Generated via {hotel.name} Billing Engine &bull; Computer Generated Bill / Cash Receipt</>
-        )}
-      </div>
+      {!isNonGST && (
+        <div className="mt-4 pt-1.5 border-t border-slate-200 text-center text-[9px] text-slate-400 font-mono">
+          Generated via {hotel.name} Billing Engine &bull; GSTIN: {hotel.gstin} &bull; Computer Generated Tax Invoice
+        </div>
+      )}
 
     </div>
   );
