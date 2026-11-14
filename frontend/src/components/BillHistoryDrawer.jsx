@@ -99,6 +99,11 @@ export default function BillHistoryDrawer({ hotel, isOpen, onClose, onSelectBill
                     }`}>
                       {b.paymentStatus}
                     </span>
+                    {b.isNonGST && (
+                      <span className="ml-1 text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-200 text-slate-700">
+                        Non-GST
+                      </span>
+                    )}
                   </div>
                 </div>
 

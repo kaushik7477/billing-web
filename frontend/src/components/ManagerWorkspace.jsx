@@ -1396,6 +1396,11 @@ export default function ManagerWorkspace({ hotel, token, onLogout, onNavigateAdm
                                 <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
                                   {b.paymentMode || 'PAID'}
                                 </span>
+                                {b.isNonGST && (
+                                  <span className="ml-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-300">
+                                    Non-GST
+                                  </span>
+                                )}
                               </td>
                               <td className="py-3 px-3 text-right space-x-1.5 whitespace-nowrap">
                                 <button

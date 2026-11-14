@@ -98,7 +98,7 @@
     "currentGuestName": "",
     "currentBillId": "",
     "currentInvoiceNo": "",
-    "updatedAt": "2026-11-12T11:46:44.806Z",
+    "updatedAt": "2026-11-14T06:24:34.170Z",
     "currentGuestPhone": "",
     "checkInDateTime": "",
     "expectedCheckOutDateTime": "",
@@ -173,7 +173,8 @@
     "checkInDateTime": "",
     "expectedCheckOutDateTime": "",
     "maintenanceUntil": null,
-    "activeIssues": []
+    "activeIssues": [],
+    "updatedAt": "2026-11-14T06:24:34.163Z"
   },
   {
     "roomId": "hotel-1-301",

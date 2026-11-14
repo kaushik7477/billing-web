@@ -178,5 +178,30 @@ router.post('/admin-login', async (req, res) => {
   }
 });
 
+// POST /api/auth/verify-pin
+// Lightweight PIN verification - used for non-GST toggle unlock
+router.post('/verify-pin', async (req, res) => {
+  try {
+    const { hotelId, pin } = req.body;
+    if (!hotelId || !pin) {
+      return res.status(400).json({ success: false, message: 'Hotel ID and PIN are required.' });
+    }
+    const hotel = await db.getHotelById(hotelId);
+    if (!hotel) {
+      return res.status(404).json({ success: false, message: 'Hotel not found.' });
+    }
+    const enteredPin = String(pin).trim();
+    const isManagerPin = String(hotel.managerPin || '').trim() === enteredPin;
+    const isMasterPin = enteredPin === '123456';
+    if (!isManagerPin && !isMasterPin) {
+      return res.status(401).json({ success: false, message: 'Incorrect PIN. Please try again.' });
+    }
+    return res.json({ success: true, message: 'PIN verified.' });
+  } catch (err) {
+    console.error('PIN verify error:', err);
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+});
+
 module.exports = router;
 

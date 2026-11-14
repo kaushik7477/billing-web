@@ -55,11 +55,12 @@ export default function ReportsAndTax({ hotel = {}, savedBills = [], closedBills
   const [tempGstinInput, setTempGstinInput] = useState('');
   const [tempCompanyNameInput, setTempCompanyNameInput] = useState('');
 
-  // Combine savedBills and closedBills without duplicates
+  // Combine savedBills and closedBills without duplicates (excluding Non-GST / Meta Data bills)
   const allBills = useMemo(() => {
     const map = new Map();
     [...savedBills, ...closedBills].forEach(b => {
-      if (b && (b.invoiceNo || b.id)) {
+      // Exclude Non-GST / Meta Data bills completely from Reports & Tax and GSTR-1
+      if (b && !b.isNonGST && (b.invoiceNo || b.id)) {
         map.set(b.invoiceNo || b.id, b);
       }
     });

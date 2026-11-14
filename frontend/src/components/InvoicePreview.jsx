@@ -2,8 +2,19 @@ import React from 'react';
 import { formatINR } from '../utils/numberToWords';
 import { maskIdNumber } from '../utils/idMasking';
 
-export default function InvoicePreview({ hotel, billData, calculations }) {
+export default function InvoicePreview({ hotel, billData, calculations, billSettings = {} }) {
   if (!hotel) return null;
+
+  const {
+    showManagerSign: _showManagerSign = true,
+    showGST: _showGST = true,
+    showTerms = true,
+    showRemarks = true,
+    isNonGST: _isNonGST = false,
+  } = billSettings;
+
+  const isNonGST = Boolean(_isNonGST || billData?.isNonGST);
+  const showGST = !isNonGST && (_showGST !== false);
 
   const {
     invoiceNo = 'HR/26/00001',
@@ -23,7 +34,7 @@ export default function InvoicePreview({ hotel, billData, calculations }) {
     numDays = 1,
     paymentMode = 'Cash',
     remarks = '',
-    showManagerSign = true
+    showManagerSign = _showManagerSign
   } = billData;
 
   const {
@@ -78,10 +89,16 @@ export default function InvoicePreview({ hotel, billData, calculations }) {
       {/* 1. Header Section: Hotel Branding & Identification */}
       <header className="invoice-header text-center pb-3 border-b-2 border-brand-800 relative">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-[11px] font-semibold text-brand-900 mb-1 border-b border-brand-200 pb-1">
-          <div className="flex items-center gap-1.5 justify-center sm:justify-start">
-            <i className="fa-solid fa-file-invoice text-brand-700"></i>
-            <span>GSTIN: <strong className="font-mono tracking-wider">{hotel.gstin}</strong></span>
-          </div>
+          {!isNonGST ? (
+            <div className="flex items-center gap-1.5 justify-center sm:justify-start">
+              <i className="fa-solid fa-file-invoice text-brand-700"></i>
+              <span>GSTIN: <strong className="font-mono tracking-wider">{hotel.gstin}</strong></span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 justify-center sm:justify-start text-slate-400 italic text-[10px]">
+              Non-GST Bill / Cash Receipt
+            </div>
+          )}
           <div className="flex items-center gap-1.5 justify-center sm:justify-end">
             <i className="fa-solid fa-phone text-brand-700"></i>
             <span>Mobile: <strong className="tracking-wide">{hotel.phone}</strong></span>
@@ -102,9 +119,11 @@ export default function InvoicePreview({ hotel, billData, calculations }) {
           </p>
         </div>
 
-        {/* Tax Invoice Banner Strip */}
-        <div className="mt-2.5 inline-block bg-brand-800 text-white text-[11px] sm:text-xs font-bold px-6 py-1 rounded tracking-widest uppercase shadow-sm print-exact">
-          Tax Invoice / Guest Bill
+        {/* Tax Invoice Banner Strip - changes to Bill/Receipt when Non-GST */}
+        <div className={`mt-2.5 inline-block text-white text-[11px] sm:text-xs font-bold px-6 py-1 rounded tracking-widest uppercase shadow-sm print-exact ${
+          isNonGST ? 'bg-slate-600' : 'bg-brand-800'
+        }`}>
+          {isNonGST ? 'Guest Bill / Cash Receipt' : 'Tax Invoice / Guest Bill'}
         </div>
       </header>
 
@@ -252,14 +271,15 @@ export default function InvoicePreview({ hotel, billData, calculations }) {
             {/* Subtotal Row */}
             <tr className="bg-slate-50 font-semibold border-t-2 border-brand-800">
               <td colSpan={4} className="py-1.5 px-3 text-right uppercase tracking-wider text-[11px] text-slate-700">
-                Subtotal (Taxable Amount):
+                {isNonGST ? 'Subtotal Amount:' : 'Subtotal (Taxable Amount):'}
               </td>
               <td className="py-1.5 px-3 text-right font-mono font-bold text-slate-900">
                 {formatINR(subtotal)}
               </td>
             </tr>
 
-            {/* CGST 2.5% */}
+            {/* CGST 2.5% - hidden when GST is off */}
+            {showGST && (
             <tr>
               <td colSpan={4} className="py-1 px-3 text-right text-slate-600 text-[11px]">
                 CGST (2.5%):
@@ -268,8 +288,10 @@ export default function InvoicePreview({ hotel, billData, calculations }) {
                 {formatINR(cgst)}
               </td>
             </tr>
+            )}
 
-            {/* SGST 2.5% */}
+            {/* SGST 2.5% - hidden when GST is off */}
+            {showGST && (
             <tr>
               <td colSpan={4} className="py-1 px-3 text-right text-slate-600 text-[11px]">
                 SGST (2.5%):
@@ -278,8 +300,10 @@ export default function InvoicePreview({ hotel, billData, calculations }) {
                 {formatINR(sgst)}
               </td>
             </tr>
+            )}
 
-            {/* Total GST 5% */}
+            {/* Total GST 5% - hidden when GST is off */}
+            {showGST && (
             <tr className="bg-slate-50/70 text-[11px]">
               <td colSpan={4} className="py-1 px-3 text-right text-slate-500 italic">
                 Total GST (5.0%):
@@ -288,6 +312,7 @@ export default function InvoicePreview({ hotel, billData, calculations }) {
                 {formatINR(totalGst)}
               </td>
             </tr>
+            )}
 
             {/* Net Total Amount */}
             <tr className="bg-slate-100 font-bold border-t border-brand-800">
@@ -331,7 +356,7 @@ export default function InvoicePreview({ hotel, billData, calculations }) {
       </div>
 
       {/* 6. Remarks Line */}
-      {remarks && (
+      {showRemarks && remarks && (
         <div className="my-2 px-1 text-[11px] text-slate-600">
           <span className="font-bold text-slate-700">Remarks:</span>
           <span className="italic ml-1">{remarks}</span>
@@ -339,6 +364,7 @@ export default function InvoicePreview({ hotel, billData, calculations }) {
       )}
 
       {/* 7. Terms & Conditions */}
+      {showTerms && (
       <div className="my-2 border-t border-dashed border-slate-300 pt-2 text-[9.5px] text-slate-500 leading-normal">
         <div className="font-bold text-slate-700 mb-0.5 uppercase tracking-wider text-[10px]">Terms & Conditions:</div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
@@ -348,6 +374,7 @@ export default function InvoicePreview({ hotel, billData, calculations }) {
           <p>&bull; All legal disputes subject to Digha / Purba Medinipur jurisdiction.</p>
         </div>
       </div>
+      )}
 
       {/* 8. Signatures Area (Customer Sign on Left & Manager Sign on Right) */}
       <div className="mt-6 pt-2 border-t border-brand-800 flex items-end justify-between text-xs">
@@ -383,7 +410,11 @@ export default function InvoicePreview({ hotel, billData, calculations }) {
 
       {/* Bottom Micro Details */}
       <div className="mt-4 pt-1.5 border-t border-slate-200 text-center text-[9px] text-slate-400 font-mono">
-        Generated via {hotel.name} Billing Engine &bull; GSTIN: {hotel.gstin} &bull; Computer Generated Tax Invoice
+        {!isNonGST ? (
+          <>Generated via {hotel.name} Billing Engine &bull; GSTIN: {hotel.gstin} &bull; Computer Generated Tax Invoice</>
+        ) : (
+          <>Generated via {hotel.name} Billing Engine &bull; Computer Generated Bill / Cash Receipt</>
+        )}
       </div>
 
     </div>

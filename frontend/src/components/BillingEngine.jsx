@@ -5,8 +5,9 @@ import { numberToWordsINR, formatINR } from '../utils/numberToWords';
 import { downloadInvoicePdf, printInvoicePdf } from '../utils/pdfExport';
 import {
   Building2, Printer, Download, Share2, Save, History,
-  RotateCcw, Sparkles, LogOut, BedDouble, User, Calendar,
-  CreditCard, CheckCircle2, ChevronRight, Phone, AlertTriangle, ArrowLeft
+  RotateCcw, BedDouble, User, Calendar,
+  CreditCard, CheckCircle2, ChevronRight, Phone, AlertTriangle, ArrowLeft,
+  Settings, LogOut, Eye, EyeOff, FileText, Stamp
 } from 'lucide-react';
 
 export default function BillingEngine({ 
@@ -71,6 +72,60 @@ export default function BillingEngine({
 
   const [isRoomSelectorOpen, setIsRoomSelectorOpen] = useState(false);
   const [selectedRoomWarning, setSelectedRoomWarning] = useState('');
+
+  // Bill Settings (controls invoice display options)
+  const [billSettings, setBillSettings] = useState(() => ({
+    showManagerSign: true,
+    showGST: !initialBillData?.isNonGST,
+    showTerms: true,
+    showRemarks: true,
+    isNonGST: Boolean(initialBillData?.isNonGST),
+  }));
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  // Non-GST PIN unlock modal
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState('');
+  const [pinLoading, setPinLoading] = useState(false);
+
+  // Handle Non-GST toggle — requires PIN verification to enable
+  const handleNonGSTToggle = () => {
+    if (billSettings.isNonGST) {
+      // Turning OFF: no PIN needed
+      setBillSettings(s => ({ ...s, isNonGST: false, showGST: true }));
+    } else {
+      // Turning ON: ask for manager PIN
+      setPinInput('');
+      setPinError('');
+      setShowPinModal(true);
+    }
+  };
+
+  const handlePinSubmit = async () => {
+    if (!pinInput.trim()) { setPinError('Please enter PIN.'); return; }
+    setPinLoading(true);
+    setPinError('');
+    try {
+      const res = await fetch('/api/auth/verify-pin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hotelId: hotel.hotelId, pin: pinInput.trim() })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setBillSettings(s => ({ ...s, isNonGST: true, showGST: false }));
+        setShowPinModal(false);
+        setPinInput('');
+      } else {
+        setPinError(data.message || 'Incorrect PIN.');
+      }
+    } catch (e) {
+      setPinError('Server error. Try again.');
+    } finally {
+      setPinLoading(false);
+    }
+  };
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [autoCalcDays, setAutoCalcDays] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -111,6 +166,11 @@ export default function BillingEngine({
         b.checkOutDate = b.checkOutDateTime.slice(0, 10);
       }
       setBillData(b);
+      if (initialBillData.isNonGST) {
+        setBillSettings(s => ({ ...s, isNonGST: true, showGST: false }));
+      } else if (initialBillData.isNonGST === false) {
+        setBillSettings(s => ({ ...s, isNonGST: false, showGST: true }));
+      }
     }
   }, [initialBillData]);
 
@@ -298,9 +358,11 @@ export default function BillingEngine({
   const totalDailyRent = itemizedRooms.reduce((sum, r) => sum + r.rentPerDay, 0);
   const subtotal = baseAccommodation + extra;
 
-  const cgst = Math.round((subtotal * 0.025) * 100) / 100;
-  const sgst = Math.round((subtotal * 0.025) * 100) / 100;
-  const totalGst = Math.round((cgst + sgst) * 100) / 100;
+  // When Non-GST mode is active, zero out all GST
+  const isNonGST = billSettings.isNonGST;
+  const cgst = isNonGST ? 0 : Math.round((subtotal * 0.025) * 100) / 100;
+  const sgst = isNonGST ? 0 : Math.round((subtotal * 0.025) * 100) / 100;
+  const totalGst = isNonGST ? 0 : Math.round((cgst + sgst) * 100) / 100;
 
   const netTotal = Math.round((subtotal + totalGst) * 100) / 100;
   const balanceDue = Math.round((netTotal - advance) * 100) / 100;
@@ -350,7 +412,8 @@ export default function BillingEngine({
         hotelId: hotel.hotelId,
         hotelName: hotel.name,
         paymentStatus: balanceDue <= 0 ? 'PAID' : 'DUE',
-        billStatus: billData.billStatus || 'SAVED'
+        billStatus: billData.billStatus || 'SAVED',
+        isNonGST: billSettings.isNonGST || false
       };
 
       const billId = billData._id || billData.id;
@@ -573,16 +636,6 @@ export default function BillingEngine({
           <div className="flex items-center space-x-2">
             <button
               type="button"
-              onClick={handleSampleFill}
-              className="px-2.5 py-1.5 text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition flex items-center gap-1 cursor-pointer"
-              title="Populate test guest details"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Sample</span>
-            </button>
-
-            <button
-              type="button"
               onClick={handleReset}
               className="px-2.5 py-1.5 text-xs font-semibold text-slate-600 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg transition flex items-center gap-1 cursor-pointer"
               title="Clear form for a new guest"
@@ -659,19 +712,248 @@ export default function BillingEngine({
               <span>Print</span>
             </button>
 
-            {onLogout && (
+            {/* ⚙️ Bill Settings Gear */}
+            <div className="relative">
               <button
                 type="button"
-                onClick={onLogout}
-                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
-                title="Logout"
+                onClick={() => setIsSettingsOpen(prev => !prev)}
+                className={`p-2 rounded-lg border transition cursor-pointer ${
+                  isSettingsOpen
+                    ? 'bg-slate-700 text-white border-slate-700 shadow-md'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border-slate-300'
+                }`}
+                title="Bill Settings"
               >
-                <LogOut className="w-4 h-4" />
+                <Settings className={`w-4 h-4 transition-transform duration-300 ${isSettingsOpen ? 'rotate-90' : ''}`} />
               </button>
-            )}
+
+              {/* Settings Dropdown Panel */}
+              {isSettingsOpen && (
+                <>
+                  {/* Backdrop to close on outside click */}
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setIsSettingsOpen(false)}
+                  />
+                  <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-xl shadow-xl border border-slate-200 z-50 overflow-hidden">
+                    {/* Panel Header */}
+                    <div className="px-4 py-3 bg-slate-800 text-white flex items-center gap-2">
+                      <Settings className="w-4 h-4" />
+                      <span className="text-sm font-bold tracking-wide">Bill Display Settings</span>
+                    </div>
+
+                    <div className="p-3 space-y-1">
+
+                      {/* Toggle: Manager Sign & Stamp */}
+                      <label className="flex items-center justify-between p-2.5 rounded-lg hover:bg-slate-50 cursor-pointer group transition">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center">
+                            <Stamp className="w-3.5 h-3.5 text-blue-600" />
+                          </div>
+                          <div>
+                            <div className="text-xs font-semibold text-slate-800">Manager Sign &amp; Stamp</div>
+                            <div className="text-[10px] text-slate-500">Show signature on printed invoice</div>
+                          </div>
+                        </div>
+                        <div
+                          onClick={() => setBillSettings(s => ({ ...s, showManagerSign: !s.showManagerSign }))}
+                          className={`relative w-10 h-5 rounded-full transition-colors cursor-pointer flex-shrink-0 ${
+                            billSettings.showManagerSign ? 'bg-blue-500' : 'bg-slate-300'
+                          }`}
+                        >
+                          <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${
+                            billSettings.showManagerSign ? 'left-5' : 'left-0.5'
+                          }`} />
+                        </div>
+                      </label>
+
+                      {/* Toggle: GST Breakdown */}
+                      <label className="flex items-center justify-between p-2.5 rounded-lg hover:bg-slate-50 cursor-pointer group transition">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center">
+                            <FileText className="w-3.5 h-3.5 text-emerald-600" />
+                          </div>
+                          <div>
+                            <div className="text-xs font-semibold text-slate-800">GST Breakdown</div>
+                            <div className="text-[10px] text-slate-500">Show CGST / SGST rows on bill</div>
+                          </div>
+                        </div>
+                        <div
+                          onClick={() => setBillSettings(s => ({ ...s, showGST: !s.showGST }))}
+                          className={`relative w-10 h-5 rounded-full transition-colors cursor-pointer flex-shrink-0 ${
+                            billSettings.showGST ? 'bg-emerald-500' : 'bg-slate-300'
+                          }`}
+                        >
+                          <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${
+                            billSettings.showGST ? 'left-5' : 'left-0.5'
+                          }`} />
+                        </div>
+                      </label>
+
+                      {/* Toggle: Terms & Conditions */}
+                      <label className="flex items-center justify-between p-2.5 rounded-lg hover:bg-slate-50 cursor-pointer group transition">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center">
+                            <FileText className="w-3.5 h-3.5 text-purple-600" />
+                          </div>
+                          <div>
+                            <div className="text-xs font-semibold text-slate-800">Terms &amp; Conditions</div>
+                            <div className="text-[10px] text-slate-500">Show T&amp;C section on bill</div>
+                          </div>
+                        </div>
+                        <div
+                          onClick={() => setBillSettings(s => ({ ...s, showTerms: !s.showTerms }))}
+                          className={`relative w-10 h-5 rounded-full transition-colors cursor-pointer flex-shrink-0 ${
+                            billSettings.showTerms ? 'bg-purple-500' : 'bg-slate-300'
+                          }`}
+                        >
+                          <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${
+                            billSettings.showTerms ? 'left-5' : 'left-0.5'
+                          }`} />
+                        </div>
+                      </label>
+
+                      {/* Toggle: Remarks */}
+                      <label className="flex items-center justify-between p-2.5 rounded-lg hover:bg-slate-50 cursor-pointer group transition">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center">
+                            <FileText className="w-3.5 h-3.5 text-amber-600" />
+                          </div>
+                          <div>
+                            <div className="text-xs font-semibold text-slate-800">Remarks</div>
+                            <div className="text-[10px] text-slate-500">Show remarks/notes on bill</div>
+                          </div>
+                        </div>
+                        <div
+                          onClick={() => setBillSettings(s => ({ ...s, showRemarks: !s.showRemarks }))}
+                          className={`relative w-10 h-5 rounded-full transition-colors cursor-pointer flex-shrink-0 ${
+                            billSettings.showRemarks ? 'bg-amber-500' : 'bg-slate-300'
+                          }`}
+                        >
+                          <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${
+                            billSettings.showRemarks ? 'left-5' : 'left-0.5'
+                          }`} />
+                        </div>
+                      </label>
+
+                      {/* Divider */}
+                      <div className="my-1 border-t border-dashed border-slate-200" />
+
+                      {/* Toggle: Non-GST / Meta Data Bill (PIN PROTECTED) */}
+                      <label className={`flex items-center justify-between p-2.5 rounded-lg cursor-pointer transition ${
+                        billSettings.isNonGST ? 'bg-red-50 border border-red-200' : 'hover:bg-slate-50'
+                      }`}>
+                        <div className="flex items-center gap-2.5">
+                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
+                            billSettings.isNonGST ? 'bg-red-100' : 'bg-slate-100'
+                          }`}>
+                            <Settings className={`w-3.5 h-3.5 ${billSettings.isNonGST ? 'text-red-600' : 'text-slate-500'}`} />
+                          </div>
+                          <div>
+                            <div className={`text-xs font-bold ${
+                              billSettings.isNonGST ? 'text-red-700' : 'text-slate-800'
+                            }`}>
+                              Meta Data (Non-GST Bill)
+                              {!billSettings.isNonGST && <span className="ml-1 text-[9px] text-slate-400 font-normal">🔒 PIN required</span>}
+                              {billSettings.isNonGST && <span className="ml-1 text-[9px] text-red-500 font-semibold">ACTIVE</span>}
+                            </div>
+                            <div className="text-[10px] text-slate-500">
+                              {billSettings.isNonGST
+                                ? 'GST hidden — bill excluded from Reports & Tax'
+                                : 'Remove GST from bill (hides from GSTR-1 reports)'}
+                            </div>
+                          </div>
+                        </div>
+                        <div
+                          onClick={handleNonGSTToggle}
+                          className={`relative w-10 h-5 rounded-full transition-colors cursor-pointer flex-shrink-0 ${
+                            billSettings.isNonGST ? 'bg-red-500' : 'bg-slate-300'
+                          }`}
+                        >
+                          <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${
+                            billSettings.isNonGST ? 'left-5' : 'left-0.5'
+                          }`} />
+                        </div>
+                      </label>
+
+                    </div>
+
+                    <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-100 text-[10px] text-slate-400 text-center">
+                      Settings apply to screen preview &amp; printed output
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
           </div>
         </div>
       </header>
+
+      {/* ============================================================ */}
+      {/* PIN VERIFICATION MODAL (for Non-GST Meta Data unlock)        */}
+      {/* ============================================================ */}
+      {showPinModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-sm mx-4 overflow-hidden">
+            {/* Modal Header */}
+            <div className="px-6 py-4 bg-gradient-to-r from-red-700 to-red-500 text-white">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                  <Settings className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="font-bold text-sm">Non-GST Mode — PIN Required</div>
+                  <div className="text-xs text-red-100 mt-0.5">Enter your manager PIN to unlock</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4">
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 font-medium">
+                ⚠️ Enabling this will remove GST details from the bill and hide it from Reports &amp; Tax section.
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-2">Manager PIN</label>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={8}
+                  value={pinInput}
+                  onChange={e => { setPinInput(e.target.value); setPinError(''); }}
+                  onKeyDown={e => e.key === 'Enter' && handlePinSubmit()}
+                  placeholder="Enter PIN"
+                  className="w-full px-4 py-3 text-center text-xl font-mono font-bold tracking-[0.4em] bg-slate-50 border-2 border-slate-300 rounded-xl focus:outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100"
+                  autoFocus
+                />
+                {pinError && (
+                  <div className="mt-2 text-xs text-red-600 font-semibold text-center">{pinError}</div>
+                )}
+              </div>
+
+              <div className="flex gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => { setShowPinModal(false); setPinInput(''); setPinError(''); }}
+                  className="flex-1 py-2.5 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePinSubmit}
+                  disabled={pinLoading}
+                  className="flex-1 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition shadow-sm cursor-pointer disabled:opacity-60"
+                >
+                  {pinLoading ? 'Verifying...' : 'Unlock Non-GST'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Mobile Tab Switcher */}
       <div className="no-print lg:hidden bg-white border-b border-slate-200 px-4 py-2 flex items-center justify-center gap-2 sticky top-16 z-30">
@@ -1047,7 +1329,12 @@ export default function BillingEngine({
             </div>
 
             {/* The Authentic Invoice Card */}
-            <InvoicePreview hotel={hotel} billData={billData} calculations={calculations} />
+            <InvoicePreview
+              hotel={hotel}
+              billData={{ ...billData, showManagerSign: billSettings.showManagerSign }}
+              calculations={calculations}
+              billSettings={billSettings}
+            />
 
           </section>
 
