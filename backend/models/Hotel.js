@@ -18,6 +18,9 @@ const HotelSchema = new mongoose.Schema({
   themeColor: { type: String, default: '#1a365d' },
   tagline: { type: String, default: 'Luxury & Comfort in Digha' },
   gstPercentage: { type: Number, default: 5 },
+  invoiceFormat: { type: String, default: 'standard' }, // 'standard' or 'numeric'
+  customInvoiceStart: { type: Number, default: 1 }, // e.g. 1769
+  nonGstStartNumber: { type: Number, default: 10001 }, // e.g. 10001
   roomTypes: [RoomTypeSchema],
   signatureImage: { type: String, default: 'manager-sign.png' },
   isActive: { type: Boolean, default: true },

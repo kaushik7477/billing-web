@@ -18,6 +18,7 @@ app.use(morgan('dev'));
 
 // Static files for images (manager signatures, logos)
 app.use('/static', express.static(path.join(__dirname, '..')));
+app.use(express.static(path.join(__dirname, '../frontend/public')));
 
 // Mount API Routes
 app.use('/api/auth', require('./routes/auth'));

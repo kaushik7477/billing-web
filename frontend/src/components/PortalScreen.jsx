@@ -438,7 +438,7 @@ export default function PortalScreen({
                     onClick={() => fillCredentials('hotel2', 'hotel2345')}
                     className="p-2 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-left transition"
                   >
-                    <div className="font-bold text-emerald-300">Hotel Sagar Priya</div>
+                    <div className="font-bold text-emerald-300">HOTEL SERENA</div>
                     <div className="text-[10px] text-slate-400 font-mono">hotel2 / hotel2345</div>
                   </button>
 

@@ -50,7 +50,7 @@ router.get('/summary', verifyAdmin, async (req, res) => {
     const paymentModes = {};
     const hotelStats = {
       'hotel-1': { count: 0, revenue: 0, name: 'Hotel Rojana' },
-      'hotel-2': { count: 0, revenue: 0, name: 'Hotel Sagar Priya' },
+      'hotel-2': { count: 0, revenue: 0, name: 'HOTEL SERENA' },
       'hotel-3': { count: 0, revenue: 0, name: 'Hotel Sea Pearl' }
     };
 

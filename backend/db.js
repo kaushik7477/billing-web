@@ -52,11 +52,11 @@ const defaultHotels = [
   },
   {
     hotelId: 'hotel-2',
-    name: 'Hotel Sagar Priya',
-    subText: 'A Unit of Sagar Hospitality & Resorts',
-    address: 'Old Digha, Near Sea Beach Road, Purba Medinipur, W.B.',
+    name: 'HOTEL SERENA',
+    subText: 'Organised By - Maa Tara Enterprise',
+    address: 'Economy Hotel Sector, New Digha, Purba Medinipur, W.B.',
     phone: '9832104567',
-    gstin: '19AAACH1234F1Z5',
+    gstin: '19ABYFM7409E1Z0',
     managerPin: '2222',
     managerUsername: 'hotel2',
     managerPassword: 'hotel2345',
@@ -78,7 +78,7 @@ const defaultHotels = [
     subText: 'Managed by Tara Holidays Group',
     address: 'Foreshore Road, Mini Holiday Sector, Digha, W.B.',
     phone: '9733445566',
-    gstin: '19BBYPS5678K1Z2',
+    gstin: '19ABYFM7409E1Z0',
     managerPin: '3333',
     managerUsername: 'hotel3',
     managerPassword: 'hotel3456',
@@ -117,7 +117,7 @@ const defaultRooms = [
   { roomId: 'hotel-1-304', hotelId: 'hotel-1', roomNumber: '304', floor: 3, roomType: 'Suite Room', defaultRent: 4500, status: 'available' },
   { roomId: 'hotel-1-305', hotelId: 'hotel-1', roomNumber: '305', floor: 3, roomType: 'Suite Room', defaultRent: 4500, status: 'available' },
 
-  // Hotel 2: Hotel Sagar Priya
+  // Hotel 2: HOTEL SERENA
   { roomId: 'hotel-2-101', hotelId: 'hotel-2', roomNumber: '101', floor: 1, roomType: 'Economy AC Room', defaultRent: 1400, status: 'available' },
   { roomId: 'hotel-2-102', hotelId: 'hotel-2', roomNumber: '102', floor: 1, roomType: 'Economy AC Room', defaultRent: 1400, status: 'available' },
   { roomId: 'hotel-2-108', hotelId: 'hotel-2', roomNumber: '108', floor: 1, roomType: 'Premium Sea View', defaultRent: 2600, status: 'available' },
@@ -781,7 +781,7 @@ const db = {
     const issues = [];
     const hotelNames = {
       'hotel-1': 'Hotel Rojana',
-      'hotel-2': 'Hotel Sagar Priya',
+      'hotel-2': 'HOTEL SERENA',
       'hotel-3': 'Hotel Sea Pearl'
     };
 

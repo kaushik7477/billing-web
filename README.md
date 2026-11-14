@@ -9,7 +9,7 @@ A full-stack **MERN** (MongoDB, Express.js, React, Node.js) multi-property hotel
 ### 1. Multi-Hotel Property Portal
 The landing screen presents **3 Hotel Selection Boxes** + **1 Super Admin Control Box**:
 - **Hotel Box 1:** **Hotel Rojana** (Organised by Maa Tara Enterprise &bull; New Digha &bull; Navy Theme &bull; Default PIN: `1111`)
-- **Hotel Box 2:** **Hotel Sagar Priya** (A Unit of Sagar Hospitality &bull; Old Digha &bull; Emerald Theme &bull; Default PIN: `2222`)
+- **Hotel Box 2:** **HOTEL SERENA** (Organised By - Maa Tara Enterprise &bull; Economy Hotel Sector, New Digha &bull; Emerald Theme &bull; Default PIN: `2222`)
 - **Hotel Box 3:** **Hotel Sea Pearl** (Managed by Tara Holidays &bull; Foreshore Road &bull; Indigo Theme &bull; Default PIN: `3333`)
 - **Box 4:** **Super Admin Portal** (Central Financial Analytics & Multi-Hotel Management &bull; `admin` / `admin123`)
 
@@ -88,7 +88,7 @@ Open **[http://localhost:5173](http://localhost:5173)** in your browser!
 | :--- | :--- | :--- |
 | **Super Admin** | `admin` | `admin123` |
 | **Hotel 1 (Hotel Rojana)** | `hotel-1` | `1111` *(changeable by Admin)* |
-| **Hotel 2 (Hotel Sagar Priya)** | `hotel-2` | `2222` *(changeable by Admin)* |
+| **Hotel 2 (HOTEL SERENA)** | `hotel-2` | `2222` *(changeable by Admin)* |
 | **Hotel 3 (Hotel Sea Pearl)** | `hotel-3` | `3333` *(changeable by Admin)* |
 
 ---

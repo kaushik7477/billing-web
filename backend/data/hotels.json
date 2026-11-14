@@ -36,11 +36,11 @@
   },
   {
     "hotelId": "hotel-2",
-    "name": "Hotel Sagar Priya",
-    "subText": "A Unit of Sagar Hospitality & Resorts",
-    "address": "Old Digha, Near Sea Beach Road, Purba Medinipur, W.B.",
+    "name": "HOTEL SERENA",
+    "subText": "Organised By - Maa Tara Enterprise",
+    "address": "Economy Hotel Sector, New Digha, Purba Medinipur, W.B.",
     "phone": "9832104567",
-    "gstin": "19AAACH1234F1Z5",
+    "gstin": "19ABYFM7409E1Z0",
     "managerPin": "2222",
     "managerUsername": "hotel2",
     "managerPassword": "hotel2",
@@ -67,7 +67,10 @@
     "signatureImage": "manager-sign.png",
     "isActive": true,
     "createdAt": "2026-11-10T18:46:25.014Z",
-    "updatedAt": "2026-11-12T12:25:05.041Z"
+    "updatedAt": "2026-11-14T13:25:42.147Z",
+    "invoiceFormat": "standard",
+    "customInvoiceStart": 1,
+    "nonGstStartNumber": 10001
   },
   {
     "hotelId": "hotel-3",
@@ -75,7 +78,7 @@
     "subText": "Managed by Tara Holidays Group",
     "address": "Foreshore Road, Mini Holiday Sector, Digha, W.B.",
     "phone": "9733445566",
-    "gstin": "19BBYPS5678K1Z2",
+    "gstin": "19ABYFM7409E1Z0",
     "managerPin": "3333",
     "managerUsername": "hotel3",
     "managerPassword": "hotel3",
@@ -102,6 +105,6 @@
     "signatureImage": "manager-sign.png",
     "isActive": true,
     "createdAt": "2026-11-10T18:46:25.015Z",
-    "updatedAt": "2026-11-14T00:25:11.748Z"
+    "updatedAt": "2026-11-14T13:25:42.216Z"
   }
 ]

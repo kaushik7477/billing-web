@@ -33,6 +33,17 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
+  // Prevent mouse scroll on any number input from changing values
+  useEffect(() => {
+    const handleWheel = (e) => {
+      if (document.activeElement && document.activeElement.type === 'number') {
+        document.activeElement.blur();
+      }
+    };
+    window.addEventListener('wheel', handleWheel, { passive: true });
+    return () => window.removeEventListener('wheel', handleWheel);
+  }, []);
+
   // Selected Hotel for Manager View
   const [selectedHotel, setSelectedHotel] = useState(() => {
     try {

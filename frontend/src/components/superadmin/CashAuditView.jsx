@@ -82,7 +82,7 @@ export default function CashAuditView({
           >
             <option value="all">🏢 All 3 Properties (Consolidated)</option>
             <option value="hotel-1">Hotel Rojana</option>
-            <option value="hotel-2">Hotel Sagar Priya</option>
+            <option value="hotel-2">HOTEL SERENA</option>
             <option value="hotel-3">Hotel Sea Pearl</option>
           </select>
         </div>

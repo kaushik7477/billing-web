@@ -114,7 +114,7 @@ export default function AdvanceBookingsView({
             >
               <option value="all">🏢 All 3 Properties</option>
               <option value="hotel-1">Hotel Rojana</option>
-              <option value="hotel-2">Hotel Sagar Priya</option>
+              <option value="hotel-2">HOTEL SERENA</option>
               <option value="hotel-3">Hotel Sea Pearl</option>
             </select>
           </div>
@@ -190,7 +190,7 @@ export default function AdvanceBookingsView({
                   <tr key={b.bookingId || b._id} className="hover:bg-slate-50/80 transition">
                     <td className="py-2.5 px-3 font-mono font-bold text-blue-700">{b.bookingId}</td>
                     <td className="py-2.5 px-3 font-semibold text-slate-900">
-                      {b.hotelName || (b.hotelId === 'hotel-1' ? 'Hotel Rojana' : b.hotelId === 'hotel-2' ? 'Hotel Sagar Priya' : 'Hotel Sea Pearl')}
+                      {b.hotelName || (b.hotelId === 'hotel-1' ? 'Hotel Rojana' : b.hotelId === 'hotel-2' ? 'HOTEL SERENA' : 'Hotel Sea Pearl')}
                     </td>
                     <td className="py-2.5 px-3">
                       <div className="font-bold text-slate-900">{b.customerName}</div>

@@ -83,7 +83,7 @@ export default function MaintenanceAlertsView({
             Zero Active Maintenance Issues
           </h2>
           <p className="text-xs text-slate-500 leading-relaxed">
-            All rooms, appliances, air conditioners, and guest amenities across Hotel Rojana, Hotel Sagar Priya, and Hotel Sea Pearl are in 100% operational working condition.
+            All rooms, appliances, air conditioners, and guest amenities across Hotel Rojana, HOTEL SERENA, and Hotel Sea Pearl are in 100% operational working condition.
           </p>
         </div>
       ) : (

@@ -13,7 +13,7 @@ export default function InvoicePreview({ hotel, billData, calculations, billSett
     isNonGST: _isNonGST = false,
   } = billSettings;
 
-  const isNonGST = Boolean(_isNonGST || billData?.isNonGST);
+  const isNonGST = Boolean(_isNonGST);
   const showGST = !isNonGST && (_showGST !== false);
 
   const {
@@ -52,25 +52,20 @@ export default function InvoicePreview({ hotel, billData, calculations, billSett
     roomsList = []
   } = calculations || {};
 
-  // Format date for receipt (e.g., "12-Nov-2026, 12:00 PM")
-  const formatReceiptDate = (dtStr, defaultType = 'in') => {
+  // Format date for receipt (e.g., "14-Nov-2026") - Only print date, no time per requirement
+  const formatReceiptDate = (dtStr) => {
     if (!dtStr) return 'Not Specified';
-    // If pure date string (YYYY-MM-DD)
-    if (/^\d{4}-\d{2}-\d{2}$/.test(dtStr)) {
-      const parts = dtStr.split('-');
+    // If date string (YYYY-MM-DD or ISO string)
+    if (/^\d{4}-\d{2}-\d{2}/.test(dtStr)) {
+      const parts = dtStr.slice(0, 10).split('-');
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       const mIdx = parseInt(parts[1], 10) - 1;
-      const defTime = defaultType === 'in' ? '12:00 PM' : '11:00 AM';
-      return `${parts[2]}-${months[mIdx]}-${parts[0]}, ${defTime}`;
+      return `${parts[2]}-${months[mIdx]}-${parts[0]}`;
     }
     const d = new Date(dtStr);
     if (isNaN(d.getTime())) return dtStr;
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    let hours = d.getHours();
-    const minutes = String(d.getMinutes()).padStart(2, '0');
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    hours = hours % 12 || 12;
-    return `${String(d.getDate()).padStart(2, '0')}-${months[d.getMonth()]}-${d.getFullYear()}, ${hours}:${minutes} ${ampm}`;
+    return `${String(d.getDate()).padStart(2, '0')}-${months[d.getMonth()]}-${d.getFullYear()}`;
   };
 
   // Determine total daily rent for duration label
@@ -79,8 +74,8 @@ export default function InvoicePreview({ hotel, billData, calculations, billSett
     : roomRentPerDay;
 
   return (
-    <div 
-      id="invoice-card" 
+    <div
+      id="invoice-card"
       className="bg-white w-full max-w-[780px] p-6 sm:p-8 rounded-lg shadow-md border-2 border-brand-800 text-slate-900 relative print-exact"
     >
       {/* Subtle Authentic Watermark */}
@@ -144,7 +139,7 @@ export default function InvoicePreview({ hotel, billData, calculations, billSett
       {/* 3. Meta Information Grid (Customer & Stay Details) */}
       <div className="my-3 text-xs border border-brand-800 rounded overflow-hidden">
         <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-brand-800">
-          
+
           {/* Left Side: Guest Info */}
           <div className="p-2.5 space-y-1.5 bg-white">
             <div className="flex">
@@ -278,38 +273,38 @@ export default function InvoicePreview({ hotel, billData, calculations, billSett
 
             {/* CGST 2.5% - hidden when GST is off */}
             {showGST && (
-            <tr>
-              <td colSpan={4} className="py-1 px-3 text-right text-slate-600 text-[11px]">
-                CGST (2.5%):
-              </td>
-              <td className="py-1 px-3 text-right font-mono font-medium text-slate-800 text-[11px]">
-                {formatINR(cgst)}
-              </td>
-            </tr>
+              <tr>
+                <td colSpan={4} className="py-1 px-3 text-right text-slate-600 text-[11px]">
+                  CGST (2.5%):
+                </td>
+                <td className="py-1 px-3 text-right font-mono font-medium text-slate-800 text-[11px]">
+                  {formatINR(cgst)}
+                </td>
+              </tr>
             )}
 
             {/* SGST 2.5% - hidden when GST is off */}
             {showGST && (
-            <tr>
-              <td colSpan={4} className="py-1 px-3 text-right text-slate-600 text-[11px]">
-                SGST (2.5%):
-              </td>
-              <td className="py-1 px-3 text-right font-mono font-medium text-slate-800 text-[11px]">
-                {formatINR(sgst)}
-              </td>
-            </tr>
+              <tr>
+                <td colSpan={4} className="py-1 px-3 text-right text-slate-600 text-[11px]">
+                  SGST (2.5%):
+                </td>
+                <td className="py-1 px-3 text-right font-mono font-medium text-slate-800 text-[11px]">
+                  {formatINR(sgst)}
+                </td>
+              </tr>
             )}
 
             {/* Total GST 5% - hidden when GST is off */}
             {showGST && (
-            <tr className="bg-slate-50/70 text-[11px]">
-              <td colSpan={4} className="py-1 px-3 text-right text-slate-500 italic">
-                Total GST (5.0%):
-              </td>
-              <td className="py-1 px-3 text-right font-mono text-slate-600">
-                {formatINR(totalGst)}
-              </td>
-            </tr>
+              <tr className="bg-slate-50/70 text-[11px]">
+                <td colSpan={4} className="py-1 px-3 text-right text-slate-500 italic">
+                  Total GST (5.0%):
+                </td>
+                <td className="py-1 px-3 text-right font-mono text-slate-600">
+                  {formatINR(totalGst)}
+                </td>
+              </tr>
             )}
 
             {/* Net Total Amount */}
@@ -363,20 +358,20 @@ export default function InvoicePreview({ hotel, billData, calculations, billSett
 
       {/* 7. Terms & Conditions */}
       {showTerms && (
-      <div className="my-2 border-t border-dashed border-slate-300 pt-2 text-[9.5px] text-slate-500 leading-normal">
-        <div className="font-bold text-slate-700 mb-0.5 uppercase tracking-wider text-[10px]">Terms & Conditions:</div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
-          <p>&bull; Standard Check-in: 12:00 PM | Check-out: 11:00 AM.</p>
-          <p>&bull; Please deposit room key at reception during final check-out.</p>
-          <p>&bull; Management is not responsible for personal valuables or cash.</p>
-          <p>&bull; All legal disputes subject to Digha / Purba Medinipur jurisdiction.</p>
+        <div className="my-2 border-t border-dashed border-slate-300 pt-2 text-[9.5px] text-slate-500 leading-normal">
+          <div className="font-bold text-slate-700 mb-0.5 uppercase tracking-wider text-[10px]">Terms & Conditions:</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+            <p>&bull; Standard Check-in: 10:30 AM | Check-out: 09:30 AM.</p>
+            <p>&bull; Please deposit room key at reception during final check-out.</p>
+            <p>&bull; Management is not responsible for personal valuables or cash.</p>
+            <p>&bull; All legal disputes subject to Digha / Purba Medinipur jurisdiction.</p>
+          </div>
         </div>
-      </div>
       )}
 
       {/* 8. Signatures Area (Customer Sign on Left & Manager Sign on Right) */}
       <div className="mt-6 pt-2 border-t border-brand-800 flex items-end justify-between text-xs">
-        
+
         {/* Left: Customer Signature */}
         <div className="text-center w-44">
           <div className="h-14 flex items-end justify-center pb-1">
@@ -391,9 +386,9 @@ export default function InvoicePreview({ hotel, billData, calculations, billSett
         <div className="text-center w-52 relative">
           <div className={`h-16 flex items-center justify-center relative ${!isNonGST && showManagerSign ? '' : 'invisible'}`}>
             {!isNonGST && (
-              <img 
+              <img
                 src={`data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='80' viewBox='0 0 240 80'><g fill='none' stroke='%231a365d'><circle cx='50' cy='40' r='32' stroke-width='2' stroke-dasharray='4 2'/><circle cx='50' cy='40' r='27' stroke-width='1'/><text x='50' y='36' font-size='7' font-weight='bold' fill='%231a365d' text-anchor='middle' stroke='none'>${encodeURIComponent(hotel.name.toUpperCase())}</text><text x='50' y='46' font-size='6' fill='%231a365d' text-anchor='middle' stroke='none'>★ DIGHA ★</text><path d='M95 50 Q110 20 125 45 T155 35 T180 55 T215 30' stroke-width='2.5' stroke-linecap='round'/><path d='M90 60 Q150 55 220 52' stroke-width='1.8' stroke-linecap='round'/></g></svg>`}
-                alt="Manager Signature & Stamp" 
+                alt="Manager Signature & Stamp"
                 className="max-h-16 object-contain pointer-events-none"
               />
             )}

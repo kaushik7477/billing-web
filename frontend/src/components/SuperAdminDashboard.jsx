@@ -386,6 +386,8 @@ export default function SuperAdminDashboard({ token, onLogout, onNavigateManager
               rooms={rooms}
               hotels={hotels}
               allBills={allBills}
+              token={token}
+              onHotelsUpdated={fetchAdminHotels}
               onSelectBill={setSelectedBillForPreview}
               isLoading={isLoading}
               onRefresh={fetchRooms}
@@ -570,7 +572,7 @@ export default function SuperAdminDashboard({ token, onLogout, onNavigateManager
                 onClick={() => {
                   const el = document.getElementById('invoice-card');
                   const safeInv = String(selectedBillForPreview.invoiceNo || 'INV').replace(/[\/\\?%*:|"<>]/g, '-');
-                  const hotelName = (selectedBillForPreview.hotelName || (selectedBillForPreview.hotelId === 'hotel-1' ? 'Hotel Rojana' : selectedBillForPreview.hotelId === 'hotel-2' ? 'Hotel Sagar Priya' : 'Hotel Sea Pearl')).replace(/\s+/g, '-');
+                  const hotelName = (selectedBillForPreview.hotelName || (selectedBillForPreview.hotelId === 'hotel-1' ? 'Hotel Rojana' : selectedBillForPreview.hotelId === 'hotel-2' ? 'HOTEL SERENA' : 'Hotel Sea Pearl')).replace(/\s+/g, '-');
                   const filename = `${hotelName}-Invoice-${safeInv}.pdf`;
                   downloadInvoicePdf(el, filename);
                 }}
@@ -583,7 +585,7 @@ export default function SuperAdminDashboard({ token, onLogout, onNavigateManager
                 onClick={() => {
                   const el = document.getElementById('invoice-card');
                   const safeInv = String(selectedBillForPreview.invoiceNo || 'INV').replace(/[\/\\?%*:|"<>]/g, '-');
-                  const hotelName = (selectedBillForPreview.hotelName || (selectedBillForPreview.hotelId === 'hotel-1' ? 'Hotel Rojana' : selectedBillForPreview.hotelId === 'hotel-2' ? 'Hotel Sagar Priya' : 'Hotel Sea Pearl')).replace(/\s+/g, '-');
+                  const hotelName = (selectedBillForPreview.hotelName || (selectedBillForPreview.hotelId === 'hotel-1' ? 'Hotel Rojana' : selectedBillForPreview.hotelId === 'hotel-2' ? 'HOTEL SERENA' : 'Hotel Sea Pearl')).replace(/\s+/g, '-');
                   const filename = `${hotelName}-Invoice-${safeInv}.pdf`;
                   printInvoicePdf(el, filename);
                 }}

@@ -20,7 +20,10 @@ router.get('/', async (req, res) => {
       tagline: h.tagline,
       roomTypes: h.roomTypes,
       signatureImage: h.signatureImage,
-      isActive: h.isActive
+      isActive: h.isActive,
+      invoiceFormat: h.invoiceFormat || 'standard',
+      customInvoiceStart: h.customInvoiceStart || 1,
+      nonGstStartNumber: h.nonGstStartNumber || 10001
     }));
     res.json({ success: true, hotels: publicHotels });
   } catch (err) {
@@ -125,6 +128,35 @@ router.put('/:hotelId/pin', verifyAdmin, async (req, res) => {
   } catch (err) {
     console.error('Error updating hotel PIN:', err);
     res.status(500).json({ success: false, message: 'Failed to update manager PIN.' });
+  }
+});
+
+// PUT /api/hotels/:hotelId/invoice-settings (Super Admin - Update Invoice Number Settings)
+router.put('/:hotelId/invoice-settings', verifyAdmin, async (req, res) => {
+  try {
+    const { hotelId } = req.params;
+    const { invoiceFormat, customInvoiceStart, nonGstStartNumber } = req.body;
+
+    const updateData = {};
+    if (invoiceFormat) updateData.invoiceFormat = invoiceFormat; // 'standard' or 'numeric'
+    if (customInvoiceStart !== undefined) updateData.customInvoiceStart = Math.max(1, parseInt(customInvoiceStart, 10) || 1);
+    if (nonGstStartNumber !== undefined) updateData.nonGstStartNumber = Math.max(1, parseInt(nonGstStartNumber, 10) || 10001);
+
+    const updated = await db.updateHotelDetails(hotelId, updateData);
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Hotel not found.' });
+    }
+
+    broadcastChange('HOTELS_UPDATED', { hotelId, action: 'INVOICE_SETTINGS' });
+
+    res.json({
+      success: true,
+      message: `Invoice configuration for ${updated.name} updated successfully!`,
+      hotel: updated
+    });
+  } catch (err) {
+    console.error('Error updating invoice settings:', err);
+    res.status(500).json({ success: false, message: 'Failed to update invoice settings.' });
   }
 });
 

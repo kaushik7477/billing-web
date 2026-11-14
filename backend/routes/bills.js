@@ -4,13 +4,70 @@ const { db } = require('../db');
 const { verifyToken } = require('../middleware/auth');
 const { broadcastChange } = require('../events');
 
-// Helper to generate unique sequential invoice number (HR/26/00001, HSP/26/00001, etc.)
-async function generateNextInvoiceNo(hotelId, hotelName = '') {
+// Helper to generate unique sequential invoice number
+// Supports:
+// 1. Independent Non-GST series (10001, 10002...)
+// 2. Hotel-configured GST series: 'numeric' (1769, 1770...) or 'standard' (HSP/26/00001...)
+async function generateNextInvoiceNo(hotelId, hotelName = '', isNonGST = false) {
+  const hotel = await db.getHotelById(hotelId);
+  const allBills = await db.getBills({ hotelId });
+
+  // 1. NON-GST (META DATA) INVOICE SERIES
+  if (isNonGST) {
+    const startNum = Number(hotel?.nonGstStartNumber) || 10001;
+    let maxSeq = 0;
+
+    for (const b of allBills) {
+      if (b.isNonGST) {
+        const num = parseInt(b.invoiceNo, 10);
+        if (!isNaN(num) && num > maxSeq) {
+          maxSeq = num;
+        }
+      }
+    }
+
+    const nextSeq = maxSeq >= startNum ? maxSeq + 1 : startNum;
+    return {
+      isNonGST: true,
+      nextSeq,
+      nextInvoiceNo: String(nextSeq)
+    };
+  }
+
+  // 2. STANDARD / NUMERIC GST INVOICE SERIES
+  const format = hotel?.invoiceFormat || 'standard';
+
+  if (format === 'numeric') {
+    const startNum = Number(hotel?.customInvoiceStart) || 1;
+    let maxSeq = 0;
+
+    for (const b of allBills) {
+      if (!b.isNonGST) {
+        const raw = String(b.invoiceNo || '').trim();
+        if (/^\d+$/.test(raw)) {
+          const num = parseInt(raw, 10);
+          if (!isNaN(num) && num > maxSeq) {
+            maxSeq = num;
+          }
+        }
+      }
+    }
+
+    const nextSeq = maxSeq >= startNum ? maxSeq + 1 : startNum;
+    return {
+      isNonGST: false,
+      invoiceFormat: 'numeric',
+      nextSeq,
+      nextInvoiceNo: String(nextSeq)
+    };
+  }
+
+  // Standard Format with prefix e.g. HR/26/00001, HS/26/00001
   let prefix = 'HR';
   if (hotelId === 'hotel-1' || /rojana/i.test(hotelName || '')) {
     prefix = 'HR';
-  } else if (hotelId === 'hotel-2' || /sagar\s*priya/i.test(hotelName || '')) {
-    prefix = 'HSP';
+  } else if (hotelId === 'hotel-2' || /serena|sagar\s*priya/i.test(hotelName || '')) {
+    prefix = 'HS';
   } else if (hotelId === 'hotel-3' || /sea\s*pearl/i.test(hotelName || '')) {
     prefix = 'HSP2';
   } else if (hotelName) {
@@ -25,12 +82,9 @@ async function generateNextInvoiceNo(hotelId, hotelName = '') {
   const yy = String(new Date().getFullYear()).slice(-2); // "26"
   const prefixYear = `${prefix}/${yy}/`;
 
-  // Query all bills for this hotel matching the prefix
-  const allBills = await db.getBills({ hotelId });
   let maxSeq = 0;
-
   for (const b of allBills) {
-    if (b.invoiceNo && b.invoiceNo.startsWith(prefixYear)) {
+    if (!b.isNonGST && b.invoiceNo && (b.invoiceNo.startsWith(prefixYear) || (hotelId === 'hotel-2' && b.invoiceNo.startsWith(`HSP/${yy}/`)))) {
       const parts = b.invoiceNo.split('/');
       if (parts.length >= 3) {
         const num = parseInt(parts[2], 10);
@@ -41,19 +95,27 @@ async function generateNextInvoiceNo(hotelId, hotelName = '') {
     }
   }
 
-  const nextSeq = maxSeq + 1;
+  const customStart = Number(hotel?.customInvoiceStart) || 1;
+  const nextSeq = maxSeq >= customStart ? maxSeq + 1 : customStart;
   const nextInvoiceNo = `${prefixYear}${String(nextSeq).padStart(5, '0')}`;
-  return { prefix, yy, nextSeq, nextInvoiceNo };
+  return {
+    isNonGST: false,
+    invoiceFormat: 'standard',
+    prefix,
+    yy,
+    nextSeq,
+    nextInvoiceNo
+  };
 }
 
 // GET /api/bills/next-invoice-no (Fetch next sequential invoice number for a property)
 router.get('/next-invoice-no', async (req, res) => {
   try {
-    const { hotelId, hotelName } = req.query;
+    const { hotelId, hotelName, isNonGST } = req.query;
     if (!hotelId) {
       return res.status(400).json({ success: false, message: 'hotelId is required' });
     }
-    const info = await generateNextInvoiceNo(hotelId, hotelName);
+    const info = await generateNextInvoiceNo(hotelId, hotelName, isNonGST === 'true' || isNonGST === true);
     res.json({ success: true, ...info });
   } catch (err) {
     console.error('Error getting next invoice no:', err);
@@ -70,16 +132,18 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Missing required bill fields (hotelId, customerName, roomNumber, netTotal).' });
     }
 
+    const isNonGST = Boolean(billData.isNonGST);
+
     // Auto generate sequential invoice serial if not provided or legacy format
     if (!billData.invoiceNo || billData.invoiceNo.includes('-2026-')) {
-      const { nextInvoiceNo } = await generateNextInvoiceNo(billData.hotelId, billData.hotelName);
+      const { nextInvoiceNo } = await generateNextInvoiceNo(billData.hotelId, billData.hotelName, isNonGST);
       billData.invoiceNo = nextInvoiceNo;
     } else {
       // Check if invoiceNo already exists for another bill to guarantee uniqueness
       const existing = await db.getBills({ hotelId: billData.hotelId });
       const dup = existing.find(b => b.invoiceNo === billData.invoiceNo && (b._id || b.id) !== (billData._id || billData.id));
       if (dup) {
-        const { nextInvoiceNo } = await generateNextInvoiceNo(billData.hotelId, billData.hotelName);
+        const { nextInvoiceNo } = await generateNextInvoiceNo(billData.hotelId, billData.hotelName, isNonGST);
         billData.invoiceNo = nextInvoiceNo;
       }
     }

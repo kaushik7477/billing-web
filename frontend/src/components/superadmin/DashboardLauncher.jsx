@@ -94,7 +94,7 @@ export default function DashboardLauncher({
             </h1>
 
             {/* <p className="text-xs sm:text-sm text-blue-100 font-medium mt-1.5 max-w-xl leading-relaxed">
-              Real-time property operations active across Hotel Rojana, Hotel Sagar Priya & Hotel Sea Pearl.
+              Real-time property operations active across Hotel Rojana, HOTEL SERENA & Hotel Sea Pearl.
             </p> */}
           </div>
 

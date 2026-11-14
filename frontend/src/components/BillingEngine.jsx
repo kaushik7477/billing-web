@@ -29,7 +29,7 @@ export default function BillingEngine({
   const formattedBillDate = `${String(now.getDate()).padStart(2, '0')}-${months[now.getMonth()]}-${now.getFullYear()}`;
 
   const yy = String(now.getFullYear()).slice(-2);
-  const initialPrefix = hotel?.hotelId === 'hotel-1' ? 'HR' : hotel?.hotelId === 'hotel-2' ? 'HSP' : 'HSP2';
+  const initialPrefix = hotel?.hotelId === 'hotel-1' ? 'HR' : hotel?.hotelId === 'hotel-2' ? 'HS' : 'HSP2';
   const defaultInitialInvoiceNo = `${initialPrefix}/${yy}/00001`;
 
   // Form State
@@ -74,12 +74,14 @@ export default function BillingEngine({
   const [selectedRoomWarning, setSelectedRoomWarning] = useState('');
 
   // Bill Settings (controls invoice display options)
+  // Per requirement: Saved bills ALWAYS open in GST layout with Meta Data OFF.
+  // Manager must explicitly toggle Meta Data ON and enter PIN to switch back to simplified layout.
   const [billSettings, setBillSettings] = useState(() => ({
     showManagerSign: true,
-    showGST: !initialBillData?.isNonGST,
+    showGST: true,
     showTerms: true,
     showRemarks: true,
-    isNonGST: Boolean(initialBillData?.isNonGST),
+    isNonGST: false,
   }));
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
@@ -89,11 +91,46 @@ export default function BillingEngine({
   const [pinError, setPinError] = useState('');
   const [pinLoading, setPinLoading] = useState(false);
 
+  // Helper to sanitize ID number per document type
+  const sanitizeIdNumber = (type, val) => {
+    if (!val) return '';
+    if (type === 'Aadhaar Card') {
+      return val.replace(/\D/g, '').slice(0, 12);
+    }
+    if (type === 'Voter ID' || type === 'PAN Card') {
+      return val.replace(/[^a-zA-Z0-9]/g, '').slice(0, 10).toUpperCase();
+    }
+    if (type === 'Passport' || type === 'Driving License') {
+      return val.replace(/[^a-zA-Z0-9]/g, '').slice(0, 15).toUpperCase();
+    }
+    return val.slice(0, 15);
+  };
+
+  // Fetch next sequential invoice number from database (supporting separate Non-GST vs GST sequence)
+  const fetchNextInvoiceNumber = async (forNonGST = false) => {
+    if (!hotel?.hotelId) return;
+    try {
+      const res = await fetch(`/api/bills/next-invoice-no?hotelId=${hotel.hotelId}&hotelName=${encodeURIComponent(hotel.name || '')}&isNonGST=${forNonGST}`);
+      const data = await res.json();
+      if (data.success && data.nextInvoiceNo) {
+        setBillData(prev => ({
+          ...prev,
+          invoiceNo: data.nextInvoiceNo
+        }));
+      }
+    } catch (err) {
+      console.error('Failed to fetch next sequential invoice number:', err);
+    }
+  };
+
   // Handle Non-GST toggle — requires PIN verification to enable
   const handleNonGSTToggle = () => {
     if (billSettings.isNonGST) {
-      // Turning OFF: no PIN needed
+      // Turning OFF: no PIN needed -> switch back to GST sequence if fresh unsaved bill
       setBillSettings(s => ({ ...s, isNonGST: false, showGST: true }));
+      if (!billData._id && !billData.id) {
+        fetchNextInvoiceNumber(false);
+      }
     } else {
       // Turning ON: ask for manager PIN
       setPinInput('');
@@ -117,6 +154,10 @@ export default function BillingEngine({
         setBillSettings(s => ({ ...s, isNonGST: true, showGST: false }));
         setShowPinModal(false);
         setPinInput('');
+        // If creating a fresh bill, switch to the separate non-GST sequence (starts at 10001)
+        if (!billData._id && !billData.id) {
+          fetchNextInvoiceNumber(true);
+        }
       } else {
         setPinError(data.message || 'Incorrect PIN.');
       }
@@ -132,30 +173,15 @@ export default function BillingEngine({
   const [mobileTab, setMobileTab] = useState('form'); // 'form' or 'preview'
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
 
-  // Fetch next sequential invoice number from database if starting fresh
-  const fetchNextInvoiceNumber = async () => {
-    if (!hotel?.hotelId) return;
-    try {
-      const res = await fetch(`/api/bills/next-invoice-no?hotelId=${hotel.hotelId}&hotelName=${encodeURIComponent(hotel.name || '')}`);
-      const data = await res.json();
-      if (data.success && data.nextInvoiceNo) {
-        setBillData(prev => ({
-          ...prev,
-          invoiceNo: data.nextInvoiceNo
-        }));
-      }
-    } catch (err) {
-      console.error('Failed to fetch next sequential invoice number:', err);
-    }
-  };
-
   useEffect(() => {
     if (!initialBillData && hotel?.hotelId) {
-      fetchNextInvoiceNumber();
+      fetchNextInvoiceNumber(false);
     }
   }, [hotel?.hotelId, initialBillData]);
 
   // Update when initialBillData changes
+  // Per requirement: Saved bill ALWAYS opens with Meta Data OFF (GST layout visible).
+  // Manager must enter PIN to switch back to Meta Data layout.
   useEffect(() => {
     if (initialBillData) {
       const b = { ...initialBillData };
@@ -166,11 +192,7 @@ export default function BillingEngine({
         b.checkOutDate = b.checkOutDateTime.slice(0, 10);
       }
       setBillData(b);
-      if (initialBillData.isNonGST) {
-        setBillSettings(s => ({ ...s, isNonGST: true, showGST: false }));
-      } else if (initialBillData.isNonGST === false) {
-        setBillSettings(s => ({ ...s, isNonGST: false, showGST: true }));
-      }
+      setBillSettings(s => ({ ...s, isNonGST: false, showGST: true }));
     }
   }, [initialBillData]);
 
@@ -216,8 +238,7 @@ export default function BillingEngine({
 
   // Change individual room rate when multiple rooms are booked
   const handleSpecificRoomRateChange = (roomNumber, val) => {
-    const parsed = val === '' ? 0 : parseFloat(val);
-    const newRate = isNaN(parsed) ? 0 : Math.max(0, parsed);
+    const newRate = val === '' ? '' : Math.max(0, parseFloat(val) || 0);
 
     setBillData(prev => {
       const updated = (prev.selectedRooms || []).map(r => {
@@ -239,7 +260,7 @@ export default function BillingEngine({
 
   // Change single room rate
   const handleSingleRoomRateChange = (newRate) => {
-    const rate = Math.max(0, newRate);
+    const rate = newRate === '' ? '' : Math.max(0, parseFloat(newRate) || 0);
     const updatedRooms = (billData.selectedRooms || []).map(r => ({ ...r, rentPerDay: rate }));
     setBillData(prev => ({
       ...prev,
@@ -1023,21 +1044,28 @@ export default function BillingEngine({
                     <select
                       value={billData.countryCode}
                       onChange={(e) => setBillData({ ...billData, countryCode: e.target.value })}
-                      className="px-2 py-2 text-xs bg-slate-100 border border-r-0 border-slate-300 rounded-l-lg font-medium text-slate-700"
+                      className="px-2 py-2 text-xs bg-slate-100 border border-r-0 border-slate-300 rounded-l-lg font-medium text-slate-700 cursor-pointer"
                     >
                       <option value="+91">IN +91</option>
-                      <option value="+1">US +1</option>
-                      <option value="+44">UK +44</option>
+                      <option value="+977">NP +977</option>
+                      <option value="+975">BT +975</option>
                       <option value="+880">BD +880</option>
+                      <option value="+1">US +1</option>
                     </select>
                     <input
                       type="tel"
-                      placeholder="9830124567"
+                      inputMode="numeric"
+                      maxLength={10}
+                      placeholder="10-digit number (e.g. 9830124567)"
                       value={billData.customerPhone}
-                      onChange={(e) => setBillData({ ...billData, customerPhone: e.target.value })}
+                      onChange={(e) => {
+                        const cleanDigits = e.target.value.replace(/\D/g, '').slice(0, 10);
+                        setBillData({ ...billData, customerPhone: cleanDigits });
+                      }}
                       className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-r-lg font-mono focus:ring-2 focus:ring-brand-500 focus:bg-white"
                     />
                   </div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">Accepts exactly 10 numeric digits</div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -1045,8 +1073,15 @@ export default function BillingEngine({
                     <label className="block text-xs font-semibold text-slate-700 mb-1">ID Document Type</label>
                     <select
                       value={billData.idType}
-                      onChange={(e) => setBillData({ ...billData, idType: e.target.value })}
-                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg"
+                      onChange={(e) => {
+                        const newType = e.target.value;
+                        setBillData(prev => ({
+                          ...prev,
+                          idType: newType,
+                          idNumber: sanitizeIdNumber(newType, prev.idNumber)
+                        }));
+                      }}
+                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg cursor-pointer"
                     >
                       <option value="Aadhaar Card">Aadhaar Card</option>
                       <option value="Voter ID">Voter ID</option>
@@ -1060,11 +1095,26 @@ export default function BillingEngine({
                     <label className="block text-xs font-semibold text-slate-700 mb-1">ID Number</label>
                     <input
                       type="text"
-                      placeholder="7845 2109 3321"
+                      placeholder={
+                        billData.idType === 'Aadhaar Card' ? '12 digits (e.g. 784521093321)' :
+                        billData.idType === 'Voter ID' ? '10 chars (e.g. WBF1234567)' :
+                        billData.idType === 'PAN Card' ? '10 chars (e.g. ABCDE1234F)' :
+                        'Max 15 alphanumeric'
+                      }
                       value={billData.idNumber}
-                      onChange={(e) => setBillData({ ...billData, idNumber: e.target.value })}
+                      onChange={(e) => {
+                        const sanitized = sanitizeIdNumber(billData.idType, e.target.value);
+                        setBillData(prev => ({ ...prev, idNumber: sanitized }));
+                      }}
                       className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg font-mono"
                     />
+                    <div className="text-[10px] text-slate-400 mt-0.5">
+                      {billData.idType === 'Aadhaar Card' && 'Max 12 digits (Numbers only)'}
+                      {billData.idType === 'Voter ID' && 'Max 10 chars (A-Z & 0-9)'}
+                      {billData.idType === 'PAN Card' && 'Max 10 chars (A-Z & 0-9)'}
+                      {billData.idType === 'Passport' && 'Max 15 chars (alphanumeric)'}
+                      {billData.idType === 'Driving License' && 'Max 15 chars (alphanumeric)'}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1135,8 +1185,17 @@ export default function BillingEngine({
                     <input
                       type="number"
                       min={1}
-                      value={billData.numPersons}
-                      onChange={(e) => setBillData({ ...billData, numPersons: parseInt(e.target.value) || 1 })}
+                      value={billData.numPersons ?? ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setBillData(prev => ({ ...prev, numPersons: val === '' ? '' : Math.max(1, parseInt(val) || 1) }));
+                      }}
+                      onBlur={() => {
+                        if (!billData.numPersons || parseInt(billData.numPersons) < 1) {
+                          setBillData(prev => ({ ...prev, numPersons: 1 }));
+                        }
+                      }}
+                      onWheel={(e) => e.target.blur()}
                       className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg"
                     />
                   </div>
@@ -1144,17 +1203,16 @@ export default function BillingEngine({
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <label className="text-xs font-semibold text-slate-700">Duration (Days)</label>
-                      <span className="text-[10px] text-brand-700 bg-brand-50 px-1 rounded font-bold">Auto</span>
+                      <span className="text-[10px] text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded font-mono font-bold">
+                        🔒 Auto Calculated
+                      </span>
                     </div>
                     <input
                       type="number"
-                      min={1}
+                      readOnly
+                      tabIndex={-1}
                       value={billData.numDays}
-                      onChange={(e) => {
-                        setAutoCalcDays(false);
-                        setBillData({ ...billData, numDays: parseInt(e.target.value) || 1 });
-                      }}
-                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg font-bold"
+                      className="w-full px-3 py-2 text-xs bg-slate-100 border border-slate-300 rounded-lg font-bold text-slate-700 cursor-not-allowed select-none"
                     />
                   </div>
                 </div>
@@ -1223,8 +1281,9 @@ export default function BillingEngine({
                           <input
                             type="number"
                             min={0}
-                            value={rm.rentPerDay}
-                            onChange={(e) => handleSpecificRoomRateChange(rm.roomNumber, parseFloat(e.target.value) || 0)}
+                            value={rm.rentPerDay ?? ''}
+                            onChange={(e) => handleSpecificRoomRateChange(rm.roomNumber, e.target.value)}
+                            onWheel={(e) => e.target.blur()}
                             className="w-full px-2.5 py-1.5 text-xs font-mono font-bold bg-slate-50 border border-slate-300 rounded-lg text-slate-900"
                           />
                         </div>
@@ -1239,8 +1298,9 @@ export default function BillingEngine({
                     <input
                       type="number"
                       min={0}
-                      value={billData.roomRentPerDay}
-                      onChange={(e) => handleSingleRoomRateChange(parseFloat(e.target.value) || 0)}
+                      value={billData.roomRentPerDay ?? ''}
+                      onChange={(e) => handleSingleRoomRateChange(e.target.value)}
+                      onWheel={(e) => e.target.blur()}
                       className="w-full px-3 py-2 text-xs font-bold bg-slate-50 border border-slate-300 rounded-lg"
                     />
                   </div>
@@ -1252,8 +1312,12 @@ export default function BillingEngine({
                     <input
                       type="number"
                       min={0}
-                      value={billData.extraCharges}
-                      onChange={(e) => setBillData({ ...billData, extraCharges: parseFloat(e.target.value) || 0 })}
+                      value={billData.extraCharges ?? ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setBillData(prev => ({ ...prev, extraCharges: val === '' ? '' : Math.max(0, parseFloat(val) || 0) }));
+                      }}
+                      onWheel={(e) => e.target.blur()}
                       className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg"
                     />
                   </div>
@@ -1263,8 +1327,12 @@ export default function BillingEngine({
                     <input
                       type="number"
                       min={0}
-                      value={billData.advancePaid}
-                      onChange={(e) => setBillData({ ...billData, advancePaid: parseFloat(e.target.value) || 0 })}
+                      value={billData.advancePaid ?? ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setBillData(prev => ({ ...prev, advancePaid: val === '' ? '' : Math.max(0, parseFloat(val) || 0) }));
+                      }}
+                      onWheel={(e) => e.target.blur()}
                       className="w-full px-3 py-2 text-xs font-bold text-emerald-700 bg-slate-50 border border-slate-300 rounded-lg"
                     />
                   </div>
@@ -1276,7 +1344,7 @@ export default function BillingEngine({
                     <select
                       value={billData.paymentMode}
                       onChange={(e) => setBillData({ ...billData, paymentMode: e.target.value })}
-                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg"
+                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg cursor-pointer"
                     >
                       <option value="Cash">Cash</option>
                       <option value="UPI / QR">UPI / QR (GPay/PhonePe)</option>
@@ -1286,13 +1354,17 @@ export default function BillingEngine({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Invoice Number (Sequential)</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-semibold text-slate-700">Invoice Number (Sequential)</label>
+                      <span className="text-[10px] text-slate-500 font-mono font-semibold">🔒 Locked</span>
+                    </div>
                     <input
                       type="text"
+                      readOnly
+                      tabIndex={-1}
                       value={billData.invoiceNo}
-                      onChange={(e) => setBillData({ ...billData, invoiceNo: e.target.value })}
                       placeholder="e.g. HR/26/00001"
-                      className="w-full px-3 py-2 text-xs font-mono font-bold bg-slate-50 border border-slate-300 rounded-lg text-brand-900"
+                      className="w-full px-3 py-2 text-xs font-mono font-bold bg-slate-100 border border-slate-300 rounded-lg text-slate-700 cursor-not-allowed select-none"
                     />
                   </div>
                 </div>
