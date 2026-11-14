@@ -1153,7 +1153,8 @@ export default function ManagerWorkspace({ hotel, token, onLogout, onNavigateAdm
                     </div>
                   </div>
 
-                  {/* Card 2: Closed Bills (Light Ash Color) */}
+                  {/* Card 2: Closed Bills (Commented out per user request) */}
+                  {/*
                   <div
                     onClick={() => setBillingMode('closed')}
                     className="bg-slate-100 hover:bg-slate-200/90 border border-slate-200 hover:border-slate-300 p-6 rounded-2xl shadow-sm hover:shadow transition cursor-pointer flex items-center justify-between group"
@@ -1175,6 +1176,7 @@ export default function ManagerWorkspace({ hotel, token, onLogout, onNavigateAdm
                       <ArrowRight className="w-4 h-4" />
                     </div>
                   </div>
+                  */}
 
                 </div>
 
