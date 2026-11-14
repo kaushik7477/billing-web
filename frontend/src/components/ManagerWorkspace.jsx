@@ -797,7 +797,8 @@ export default function ManagerWorkspace({ hotel, token, onLogout, onNavigateAdm
               <span>Rooms Issue</span>
             </button>
 
-            {/* 6. Daily Settlement (Financial Section) */}
+            {/* 6. Daily Settlement (Hidden per user request) */}
+            {/*
             <button
               onClick={() => setActiveTab('settlement')}
               className={`px-3.5 py-2 text-xs font-bold rounded-xl transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${activeTab === 'settlement'
@@ -814,8 +815,10 @@ export default function ManagerWorkspace({ hotel, token, onLogout, onNavigateAdm
                 </span>
               )}
             </button>
+            */}
 
-            {/* 7. Reports & Tax */}
+            {/* 7. Reports & Tax (Hidden per user request) */}
+            {/*
             <button
               onClick={() => setActiveTab('reports')}
               className={`px-3.5 py-2 text-xs font-bold rounded-xl transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${activeTab === 'reports'
@@ -826,6 +829,7 @@ export default function ManagerWorkspace({ hotel, token, onLogout, onNavigateAdm
               <FileSpreadsheet className="w-4 h-4" />
               <span>Reports & Tax</span>
             </button>
+            */}
 
           </nav>
         </div>
@@ -910,6 +914,8 @@ export default function ManagerWorkspace({ hotel, token, onLogout, onNavigateAdm
                     </div>
                   </div>
 
+                  {/* Settlement Sheet Button (Hidden per user request) */}
+                  {/*
                   <button
                     onClick={() => setActiveTab('settlement')}
                     className={`px-3 py-1.5 text-xs font-bold rounded-xl transition flex items-center gap-1 cursor-pointer shadow-sm ${activeTab === 'settlement'
@@ -920,6 +926,7 @@ export default function ManagerWorkspace({ hotel, token, onLogout, onNavigateAdm
                   >
                     <span>Settlement Sheet &rarr;</span>
                   </button>
+                  */}
 
                 </div>
 
@@ -2187,10 +2194,9 @@ export default function ManagerWorkspace({ hotel, token, onLogout, onNavigateAdm
         )}
 
         {/* --------------------------------------------------------- */}
-        {/* TAB 6: FINANCIALS & DAILY SETTLEMENT VIEW                 */}
-        {/* (Manager Reconciliation: Collections & Pending Balances) */}
+        {/* TAB 6: FINANCIALS & DAILY SETTLEMENT VIEW (Hidden per user request) */}
         {/* --------------------------------------------------------- */}
-        {activeTab === 'settlement' && (
+        {false && activeTab === 'settlement' && (
           <div className="space-y-6 animate-fade-in">
 
             {/* Header Card */}
@@ -2476,9 +2482,9 @@ export default function ManagerWorkspace({ hotel, token, onLogout, onNavigateAdm
 
 
         {/* --------------------------------------------------------- */}
-        {/* TAB 7: REPORTS & TAX (GSTR-1 & POLICE STATION COMPLIANCE) */}
+        {/* TAB 7: REPORTS & TAX (Hidden per user request)            */}
         {/* --------------------------------------------------------- */}
-        {activeTab === 'reports' && (
+        {false && activeTab === 'reports' && (
           <ReportsAndTax
             hotel={hotel}
             savedBills={savedBills}
