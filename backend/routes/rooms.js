@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { db } = require('../db');
+const { broadcastChange } = require('../events');
 
 // GET /api/rooms (Get rooms floor-by-floor with live status flags, optionally for all hotels)
 router.get('/', async (req, res) => {
@@ -70,6 +71,7 @@ router.post('/', async (req, res) => {
       roomType, 
       defaultRent: parseFloat(rent) || 1500 
     });
+    broadcastChange('ROOMS_UPDATED', { hotelId, action: 'ADD_ROOM', roomNumber });
     res.status(201).json({
       success: true,
       message: `Room ${roomNumber} added to inventory.`,
@@ -86,6 +88,7 @@ router.put('/:hotelId/:roomNumber', async (req, res) => {
   try {
     const { hotelId, roomNumber } = req.params;
     const updated = await db.updateRoomTariff(hotelId, roomNumber, req.body);
+    broadcastChange('ROOMS_UPDATED', { hotelId, action: 'UPDATE_TARIFF', roomNumber });
     res.json({
       success: true,
       message: `Room ${roomNumber} updated successfully.`,
@@ -102,6 +105,7 @@ router.delete('/:hotelId/:roomNumber', async (req, res) => {
   try {
     const { hotelId, roomNumber } = req.params;
     await db.deleteRoom(hotelId, roomNumber);
+    broadcastChange('ROOMS_UPDATED', { hotelId, action: 'DELETE_ROOM', roomNumber });
     res.json({
       success: true,
       message: `Room ${roomNumber} removed from inventory.`
@@ -123,6 +127,7 @@ router.put('/:roomNumber/status', async (req, res) => {
     }
 
     await db.updateRoomStatus(hotelId, roomNumber, status, maintenanceMinutes || 0);
+    broadcastChange('ROOMS_UPDATED', { hotelId, action: 'STATUS_CHANGE', roomNumber, status });
     res.json({ success: true, message: `Room ${roomNumber} status updated to ${status}.` });
   } catch (err) {
     console.error('Error updating room status:', err);
@@ -141,6 +146,7 @@ router.post('/:roomNumber/issues', async (req, res) => {
     }
 
     const issue = await db.addRoomIssue(hotelId, roomNumber, issueText, reportedBy || 'Manager');
+    broadcastChange('ROOMS_UPDATED', { hotelId, action: 'ISSUE_REPORTED', roomNumber });
     res.json({
       success: true,
       message: `Issue reported for Room ${roomNumber}.`,
@@ -163,6 +169,7 @@ router.put('/:roomNumber/issues/fix', async (req, res) => {
     }
 
     await db.fixRoomIssue(hotelId, roomNumber, issueId);
+    broadcastChange('ROOMS_UPDATED', { hotelId, action: 'ISSUE_FIXED', roomNumber });
     res.json({
       success: true,
       message: `Issue for Room ${roomNumber} marked as fixed.`
@@ -184,6 +191,7 @@ router.post('/:roomNumber/checkout', async (req, res) => {
     }
 
     await db.checkoutRoom(hotelId, roomNumber);
+    broadcastChange('ROOMS_UPDATED', { hotelId, action: 'CHECKOUT', roomNumber });
     res.json({
       success: true,
       message: `Room ${roomNumber} checked out. 30-minute housekeeping cycle initiated.`

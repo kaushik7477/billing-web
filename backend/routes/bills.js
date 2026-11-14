@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { db } = require('../db');
 const { verifyToken } = require('../middleware/auth');
+const { broadcastChange } = require('../events');
 
 // Helper to generate unique sequential invoice number (HR/26/00001, HSP/26/00001, etc.)
 async function generateNextInvoiceNo(hotelId, hotelName = '') {
@@ -103,6 +104,10 @@ router.post('/', async (req, res) => {
       );
     }
 
+    // Broadcast instant sync event to all open tabs and devices
+    broadcastChange('ROOMS_UPDATED', { hotelId: billData.hotelId, action: 'CHECKIN', roomNumber: billData.roomNumber });
+    broadcastChange('BILLS_UPDATED', { hotelId: billData.hotelId, action: 'CREATE' });
+
     res.status(201).json({
       success: true,
       message: `Invoice ${savedBill.invoiceNo} saved successfully.`,
@@ -178,6 +183,9 @@ router.put('/:id', async (req, res) => {
       );
     }
 
+    broadcastChange('ROOMS_UPDATED', { hotelId: updated.hotelId, action: 'UPDATE' });
+    broadcastChange('BILLS_UPDATED', { hotelId: updated.hotelId, action: 'UPDATE' });
+
     res.json({
       success: true,
       message: `Invoice ${updated.invoiceNo} updated successfully.`,
@@ -197,6 +205,9 @@ router.post('/:id/checkout', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Bill not found.' });
     }
 
+    broadcastChange('ROOMS_UPDATED', { hotelId: closed.hotelId, action: 'CHECKOUT', roomNumber: closed.roomNumber });
+    broadcastChange('BILLS_UPDATED', { hotelId: closed.hotelId, action: 'CHECKOUT' });
+
     res.json({
       success: true,
       message: `Guest checked out! Invoice ${closed.invoiceNo} closed. Room ${closed.roomNumber} entered 30-min housekeeping.`,
@@ -215,6 +226,8 @@ router.delete('/:id', verifyToken, async (req, res) => {
     if (!success) {
       return res.status(404).json({ success: false, message: 'Bill not found or already deleted.' });
     }
+    broadcastChange('BILLS_UPDATED', { action: 'DELETE' });
+    broadcastChange('ROOMS_UPDATED', { action: 'DELETE' });
     res.json({ success: true, message: 'Bill deleted successfully.' });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to delete bill.' });

@@ -28,6 +28,10 @@ app.use('/api/rooms', require('./routes/rooms'));
 app.use('/api/advance-bookings', require('./routes/advanceBookings'));
 app.use('/api/activity', require('./routes/activity'));
 
+// Real-time Server-Sent Events (SSE) for instant cross-tab & cross-device synchronization
+const { initEvents } = require('./events');
+initEvents(app);
+
 // Root API Health Check
 app.get('/api/health', (req, res) => {
   res.json({

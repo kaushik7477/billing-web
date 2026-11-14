@@ -194,13 +194,19 @@ export default function RoomMatrixView({
           </div>
         </div>
 
-        <button
-          onClick={onRefresh}
-          className="p-2.5 text-slate-700 hover:text-blue-700 bg-slate-100 hover:bg-blue-50 border border-slate-200 rounded-xl transition flex items-center gap-2 text-xs font-mono font-bold self-start sm:self-auto cursor-pointer"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-blue-600' : ''}`} />
-          <span>Refresh Matrix</span>
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-mono font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            LIVE SYNC ACTIVE
+          </span>
+          <button
+            onClick={onRefresh}
+            className="p-2.5 text-slate-700 hover:text-blue-700 bg-slate-100 hover:bg-blue-50 border border-slate-200 rounded-xl transition flex items-center gap-2 text-xs font-mono font-bold cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-blue-600' : ''}`} />
+            <span>Refresh Matrix</span>
+          </button>
+        </div>
       </div>
 
       {/* ======================================================== */}

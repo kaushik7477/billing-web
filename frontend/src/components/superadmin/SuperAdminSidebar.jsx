@@ -119,6 +119,14 @@ export default function SuperAdminSidebar({
 
         {/* Bottom Actions Section */}
         <div className="p-4 border-t border-slate-100 bg-slate-50 space-y-2">
+          <div className="flex items-center justify-between text-[10px] font-mono font-bold px-1 text-slate-500">
+            <span className="flex items-center gap-1.5 text-emerald-700">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              LIVE AUTO-SYNC
+            </span>
+            <span className="text-slate-400">Instant</span>
+          </div>
+
           <div className="flex items-center gap-2">
             <button
               onClick={onExportCSV}

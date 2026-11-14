@@ -176,10 +176,10 @@ export default function ManagerWorkspace({ hotel, token, onLogout, onNavigateAdm
     year: 'numeric'
   });
 
-  // Fetch all initial data
-  const loadWorkspaceData = async () => {
+  // Fetch all initial data (silent = true prevents flickering during auto-sync)
+  const loadWorkspaceData = async (silent = false) => {
     if (!hotel?.hotelId) return;
-    setIsLoading(true);
+    if (!silent) setIsLoading(true);
     try {
       // 1. Fetch Today Activity
       const actRes = await fetch(`/api/activity/today?hotelId=${hotel.hotelId}`);
@@ -211,9 +211,51 @@ export default function ManagerWorkspace({ hotel, token, onLogout, onNavigateAdm
     } catch (err) {
       console.error('Failed to load workspace data:', err);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   };
+
+  // Real-time EventSource listener + Auto-Sync for Manager Workspace
+  useEffect(() => {
+    let eventSource = null;
+    try {
+      eventSource = new EventSource('/api/events');
+      eventSource.onmessage = (e) => {
+        try {
+          const payload = JSON.parse(e.data);
+          if (payload.type === 'PING') return;
+          // Refresh workspace data instantly without page reload
+          loadWorkspaceData(true);
+        } catch (err) {
+          console.warn('SSE parse error:', err);
+        }
+      };
+    } catch (e) {
+      console.warn('SSE connection error:', e);
+    }
+
+    // Auto-refresh interval (every 8 seconds as fail-safe guarantee)
+    const interval = setInterval(() => {
+      loadWorkspaceData(true);
+    }, 8000);
+
+    // Refresh instantly when user switches back to this browser tab
+    const handleFocus = () => {
+      loadWorkspaceData(true);
+    };
+    window.addEventListener('focus', handleFocus);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') handleFocus();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      if (eventSource) eventSource.close();
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [hotel?.hotelId, roomFilterDate]);
 
   useEffect(() => {
     loadWorkspaceData();
@@ -633,6 +675,21 @@ export default function ManagerWorkspace({ hotel, token, onLogout, onNavigateAdm
                 <div className="font-mono text-xs font-extrabold text-slate-800 leading-none">{formattedTime}</div>
                 <div className="text-[10px] text-slate-500 mt-0.5">{formattedDate}</div>
               </div>
+            </div>
+
+            {/* Live Auto-Sync Indicator & Quick Refresh */}
+            <div className="flex items-center gap-1.5">
+              <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-mono font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl" title="Real-time live synchronization is active">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                LIVE SYNC
+              </span>
+              <button
+                onClick={() => loadWorkspaceData(false)}
+                className="p-2 text-slate-700 hover:text-blue-700 bg-slate-50 hover:bg-blue-50 border border-slate-200 rounded-xl transition cursor-pointer shadow-2xs"
+                title="Sync Latest Data Now"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-blue-600' : ''}`} />
+              </button>
             </div>
 
             {/* Help Page Button (Added to Header per User Request) */}

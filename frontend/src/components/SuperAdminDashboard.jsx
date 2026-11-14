@@ -119,8 +119,8 @@ export default function SuperAdminDashboard({ token, onLogout, onNavigateManager
   }, []);
 
   // 6. Fetch Financial Analytics & Bills
-  const fetchAnalytics = useCallback(async () => {
-    setIsLoading(true);
+  const fetchAnalytics = useCallback(async (silent = false) => {
+    if (!silent) setIsLoading(true);
     try {
       const queryParams = new URLSearchParams();
       if (hotelFilter !== 'all') queryParams.append('hotelId', hotelFilter);
@@ -170,19 +170,61 @@ export default function SuperAdminDashboard({ token, onLogout, onNavigateManager
     } catch (err) {
       console.error('Error fetching analytics:', err);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   }, [token, hotelFilter, paymentModeFilter, statusFilter, datePreset, startDate, endDate]);
 
-  // Combined Refresh
-  const handleRefreshAll = () => {
+  // Combined Refresh (silent = true prevents flickering on background sync)
+  const handleRefreshAll = useCallback((silent = false) => {
     fetchAdminHotels();
     fetchActivityOverview();
     fetchRooms();
     fetchAdvanceBookings();
     fetchMaintenanceIssues();
-    fetchAnalytics();
-  };
+    fetchAnalytics(silent);
+  }, [fetchAdminHotels, fetchActivityOverview, fetchRooms, fetchAdvanceBookings, fetchMaintenanceIssues, fetchAnalytics]);
+
+  // Real-time Live Event Sync via Server-Sent Events (SSE) + Auto-Refresh
+  useEffect(() => {
+    let eventSource = null;
+    try {
+      eventSource = new EventSource('/api/events');
+      eventSource.onmessage = (e) => {
+        try {
+          const payload = JSON.parse(e.data);
+          if (payload.type === 'PING') return;
+          // Instantly refresh all views without reload
+          handleRefreshAll(true);
+        } catch (err) {
+          console.warn('SSE parse error:', err);
+        }
+      };
+    } catch (e) {
+      console.warn('SSE connection error:', e);
+    }
+
+    // Auto-refresh interval (every 8 seconds as fail-safe guarantee)
+    const interval = setInterval(() => {
+      handleRefreshAll(true);
+    }, 8000);
+
+    // Refresh instantly when user switches back to this browser tab
+    const handleFocus = () => {
+      handleRefreshAll(true);
+    };
+    window.addEventListener('focus', handleFocus);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') handleFocus();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      if (eventSource) eventSource.close();
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [handleRefreshAll]);
 
   // Initial Data Load
   useEffect(() => {

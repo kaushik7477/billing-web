@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { db } = require('../db');
 const { verifyAdmin } = require('../middleware/auth');
+const { broadcastChange } = require('../events');
 
 // GET /api/hotels (Public - for 3 Hotel Selection Cards on Landing Page)
 router.get('/', async (req, res) => {
@@ -85,6 +86,8 @@ router.put('/:hotelId/credentials', verifyAdmin, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Hotel not found.' });
     }
 
+    broadcastChange('HOTELS_UPDATED', { hotelId, action: 'CREDENTIALS' });
+
     res.json({
       success: true,
       message: `Login credentials for ${updatedHotel.name} updated! (User ID: ${cleanUser})`,
@@ -111,6 +114,8 @@ router.put('/:hotelId/pin', verifyAdmin, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Hotel not found.' });
     }
 
+    broadcastChange('HOTELS_UPDATED', { hotelId, action: 'PIN' });
+
     res.json({
       success: true,
       message: `Manager PIN for ${updatedHotel.name} successfully updated to: ${newPin}`,
@@ -131,6 +136,7 @@ router.put('/:hotelId', verifyAdmin, async (req, res) => {
     if (!updated) {
       return res.status(404).json({ success: false, message: 'Hotel not found.' });
     }
+    broadcastChange('HOTELS_UPDATED', { hotelId, action: 'DETAILS' });
     res.json({ success: true, message: 'Hotel information updated successfully.', hotel: updated });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to update hotel information.' });

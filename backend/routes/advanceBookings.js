@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { db } = require('../db');
+const { broadcastChange } = require('../events');
 
 // GET /api/advance-bookings
 router.get('/', async (req, res) => {
@@ -30,6 +31,7 @@ router.post('/', async (req, res) => {
     }
 
     const newBooking = await db.createAdvanceBooking(bookingData);
+    broadcastChange('BOOKINGS_UPDATED', { hotelId: newBooking.hotelId, action: 'CREATE' });
     res.status(201).json({
       success: true,
       message: `Advance booking for ${newBooking.customerName} created successfully (${newBooking.bookingId}).`,
@@ -46,6 +48,7 @@ router.put('/:bookingId', async (req, res) => {
   try {
     const { bookingId } = req.params;
     await db.updateAdvanceBooking(bookingId, req.body);
+    broadcastChange('BOOKINGS_UPDATED', { bookingId, action: 'UPDATE' });
     res.json({
       success: true,
       message: `Booking ${bookingId} updated successfully.`
