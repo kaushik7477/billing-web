@@ -846,92 +846,80 @@ export default function ManagerWorkspace({ hotel, token, onLogout, onNavigateAdm
         {activeTab === 'activity' && (
           <div className="space-y-6 animate-fade-in">
 
-            {/* Financial Collections Strip (Today's Collections & Pending Balances) */}
-            <div className="bg-white text-slate-800 rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5 no-print">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+            {/* Financial Collections Strip (Today's Collections & Pending Balances) - Hidden per user request */}
+            {false && (
+              <div className="bg-white text-slate-800 rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5 no-print">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
 
-                {/* Left: Collections Pillar with Cash vs UPI vs Card Breakdown */}
-                <div className="flex flex-wrap items-center gap-3 sm:gap-5">
+                  {/* Left: Collections Pillar with Cash vs UPI vs Card Breakdown */}
+                  <div className="flex flex-wrap items-center gap-3 sm:gap-5">
 
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center font-bold">
-                      <Banknote className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block leading-none">
-                        Today's Collections
-                      </span>
-                      <span className="font-mono text-base sm:text-lg font-extrabold text-slate-900">
-                        ₹{formatINR(finalTotalCollections)}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="h-7 w-[1px] bg-slate-200 hidden sm:block"></div>
-
-                  {/* Collections Breakdown: Cash vs UPI vs Card */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <div className="px-2.5 py-1 rounded-lg bg-emerald-50/80 border border-emerald-200 text-[11px] flex items-center gap-1.5" title="Cash collections today">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                      <span className="text-emerald-800 font-medium">Cash:</span>
-                      <span className="font-mono font-bold text-emerald-700">₹{formatINR(finalCash)}</span>
-                    </div>
-
-                    <div className="px-2.5 py-1 rounded-lg bg-blue-50/80 border border-blue-200 text-[11px] flex items-center gap-1.5" title="UPI / QR collections today">
-                      <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                      <span className="text-blue-800 font-medium">UPI:</span>
-                      <span className="font-mono font-bold text-blue-700">₹{formatINR(finalUPI)}</span>
-                    </div>
-
-                    <div className="px-2.5 py-1 rounded-lg bg-purple-50/80 border border-purple-200 text-[11px] flex items-center gap-1.5" title="Card collections today">
-                      <span className="w-2 h-2 rounded-full bg-purple-500"></span>
-                      <span className="text-purple-800 font-medium">Card:</span>
-                      <span className="font-mono font-bold text-purple-700">₹{formatINR(finalCard)}</span>
-                    </div>
-                  </div>
-
-                </div>
-
-                {/* Right: Pending Balances across all checked-in guests */}
-                <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 md:pt-0 border-t border-slate-100 md:border-t-0">
-
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center font-bold">
-                      <Receipt className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider block leading-none">
-                        Pending Balances (Active Stays)
-                      </span>
-                      <div className="flex items-baseline gap-1.5 mt-0.5">
-                        <span className="font-mono text-base sm:text-lg font-extrabold text-amber-700">
-                          ₹{formatINR(finalPendingTotal)}
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center font-bold">
+                        <Banknote className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block leading-none">
+                          Today's Collections
                         </span>
-                        <span className="text-[10px] text-slate-500">
-                          ({finalPendingCount} {finalPendingCount === 1 ? 'guest' : 'guests'})
+                        <span className="font-mono text-base sm:text-lg font-extrabold text-slate-900">
+                          ₹{formatINR(finalTotalCollections)}
                         </span>
                       </div>
                     </div>
+
+                    <div className="h-7 w-[1px] bg-slate-200 hidden sm:block"></div>
+
+                    {/* Collections Breakdown: Cash vs UPI vs Card */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <div className="px-2.5 py-1 rounded-lg bg-emerald-50/80 border border-emerald-200 text-[11px] flex items-center gap-1.5" title="Cash collections today">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                        <span className="text-emerald-800 font-medium">Cash:</span>
+                        <span className="font-mono font-bold text-emerald-700">₹{formatINR(finalCash)}</span>
+                      </div>
+
+                      <div className="px-2.5 py-1 rounded-lg bg-blue-50/80 border border-blue-200 text-[11px] flex items-center gap-1.5" title="UPI / QR collections today">
+                        <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                        <span className="text-blue-800 font-medium">UPI:</span>
+                        <span className="font-mono font-bold text-blue-700">₹{formatINR(finalUPI)}</span>
+                      </div>
+
+                      <div className="px-2.5 py-1 rounded-lg bg-purple-50/80 border border-purple-200 text-[11px] flex items-center gap-1.5" title="Card collections today">
+                        <span className="w-2 h-2 rounded-full bg-purple-500"></span>
+                        <span className="text-purple-800 font-medium">Card:</span>
+                        <span className="font-mono font-bold text-purple-700">₹{formatINR(finalCard)}</span>
+                      </div>
+                    </div>
+
                   </div>
 
-                  {/* Settlement Sheet Button (Hidden per user request) */}
-                  {/*
-                  <button
-                    onClick={() => setActiveTab('settlement')}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-xl transition flex items-center gap-1 cursor-pointer shadow-sm ${activeTab === 'settlement'
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 hover:border-slate-300'
-                      }`}
-                    title="View Full Daily Settlement Sheet & Audit"
-                  >
-                    <span>Settlement Sheet &rarr;</span>
-                  </button>
-                  */}
+                  {/* Right: Pending Balances across all checked-in guests */}
+                  <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 md:pt-0 border-t border-slate-100 md:border-t-0">
+
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center font-bold">
+                        <Receipt className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider block leading-none">
+                          Pending Balances (Active Stays)
+                        </span>
+                        <div className="flex items-baseline gap-1.5 mt-0.5">
+                          <span className="font-mono text-base sm:text-lg font-extrabold text-amber-700">
+                            ₹{formatINR(finalPendingTotal)}
+                          </span>
+                          <span className="text-[10px] text-slate-500">
+                            ({finalPendingCount} {finalPendingCount === 1 ? 'guest' : 'guests'})
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
 
                 </div>
-
               </div>
-            </div>
+            )}
 
             {/* KPI Cards Row */}
             <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-4">
