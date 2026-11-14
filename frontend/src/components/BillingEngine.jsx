@@ -1,92 +1,314 @@
 import React, { useState, useEffect } from 'react';
 import InvoicePreview from './InvoicePreview';
+import RoomSelectorModal from './RoomSelectorModal';
 import { numberToWordsINR, formatINR } from '../utils/numberToWords';
-import { 
-  Building2, Printer, Download, Share2, Save, History, 
-  RotateCcw, Sparkles, LogOut, BedDouble, User, Calendar, 
-  CreditCard, CheckCircle2, ChevronRight, Phone
+import { downloadInvoicePdf, printInvoicePdf } from '../utils/pdfExport';
+import {
+  Building2, Printer, Download, Share2, Save, History,
+  RotateCcw, Sparkles, LogOut, BedDouble, User, Calendar,
+  CreditCard, CheckCircle2, ChevronRight, Phone, AlertTriangle, ArrowLeft
 } from 'lucide-react';
 
-export default function BillingEngine({ hotel, token, onLogout, onOpenHistory }) {
+export default function BillingEngine({ 
+  hotel, 
+  token, 
+  onLogout, 
+  onOpenHistory, 
+  initialBillData, 
+  onSaveSuccess, 
+  onCheckoutSuccess, 
+  onCloseBilling 
+}) {
   // Current date initialization
   const now = new Date();
   const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  const tomorrowStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const formattedBillDate = `${String(now.getDate()).padStart(2, '0')}-${months[now.getMonth()]}-${now.getFullYear()}`;
 
+  const yy = String(now.getFullYear()).slice(-2);
+  const initialPrefix = hotel?.hotelId === 'hotel-1' ? 'HR' : hotel?.hotelId === 'hotel-2' ? 'HSP' : 'HSP2';
+  const defaultInitialInvoiceNo = `${initialPrefix}/${yy}/00001`;
+
   // Form State
-  const [billData, setBillData] = useState({
-    invoiceNo: `${hotel.hotelId === 'hotel-1' ? 'HR' : hotel.hotelId === 'hotel-2' ? 'HSP' : 'HSP2'}-2026-${Math.floor(1000 + Math.random() * 9000)}`,
-    billDate: formattedBillDate,
-    customerName: 'Rahul Banerjee',
-    countryCode: '+91',
-    customerPhone: '9830124567',
-    idType: 'Aadhaar Card',
-    idNumber: '7845 2109 3321',
-    roomType: hotel.roomTypes?.[1]?.name || 'Deluxe Room',
-    roomNumber: '204, 205',
-    numPersons: 3,
-    checkInDateTime: `${todayStr}T12:00`,
-    checkOutDateTime: `${todayStr}T11:00`,
-    numDays: 2,
-    roomRentPerDay: hotel.roomTypes?.[1]?.defaultRent || 2200,
-    extraCharges: 500,
-    advancePaid: 1500,
-    paymentMode: 'Cash',
-    remarks: 'Extra mattress provided. Room checked out in clean condition.',
-    showManagerSign: true
+  const [billData, setBillData] = useState(() => {
+    if (initialBillData) {
+      const b = { ...initialBillData };
+      if (!b.checkInDate && b.checkInDateTime) {
+        b.checkInDate = b.checkInDateTime.slice(0, 10);
+      }
+      if (!b.checkOutDate && b.checkOutDateTime) {
+        b.checkOutDate = b.checkOutDateTime.slice(0, 10);
+      }
+      return b;
+    }
+    return {
+      invoiceNo: defaultInitialInvoiceNo,
+      billDate: formattedBillDate,
+      customerName: '',
+      countryCode: '+91',
+      customerPhone: '',
+      idType: 'Aadhaar Card',
+      idNumber: '',
+      roomType: hotel.roomTypes?.[0]?.name || 'Standard Room',
+      roomNumber: '',
+      selectedRooms: [],
+      numPersons: 2,
+      checkInDate: todayStr,
+      checkOutDate: tomorrowStr,
+      checkInDateTime: `${todayStr}T12:00`,
+      checkOutDateTime: `${tomorrowStr}T11:00`,
+      numDays: 1,
+      roomRentPerDay: hotel.roomTypes?.[0]?.defaultRent || 1500,
+      extraCharges: 0,
+      advancePaid: 0,
+      paymentMode: 'Cash',
+      remarks: 'Thank you for choosing to stay with us. Visit again!',
+      showManagerSign: true
+    };
   });
 
+  const [isRoomSelectorOpen, setIsRoomSelectorOpen] = useState(false);
+  const [selectedRoomWarning, setSelectedRoomWarning] = useState('');
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [autoCalcDays, setAutoCalcDays] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [mobileTab, setMobileTab] = useState('form'); // 'form' or 'preview'
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
 
-  // Auto calculate days between checkin and checkout
-  useEffect(() => {
-    if (!billData.checkInDateTime || !billData.checkOutDateTime) return;
-    const d1 = new Date(billData.checkInDateTime);
-    const d2 = new Date(billData.checkOutDateTime);
-    if (isNaN(d1.getTime()) || isNaN(d2.getTime())) return;
-
-    const diffHours = (d2.getTime() - d1.getTime()) / (1000 * 60 * 60);
-    const calcDays = Math.max(1, Math.round(diffHours / 24));
-    
-    if (autoCalcDays) {
-      setBillData(prev => ({ ...prev, numDays: calcDays }));
+  // Fetch next sequential invoice number from database if starting fresh
+  const fetchNextInvoiceNumber = async () => {
+    if (!hotel?.hotelId) return;
+    try {
+      const res = await fetch(`/api/bills/next-invoice-no?hotelId=${hotel.hotelId}&hotelName=${encodeURIComponent(hotel.name || '')}`);
+      const data = await res.json();
+      if (data.success && data.nextInvoiceNo) {
+        setBillData(prev => ({
+          ...prev,
+          invoiceNo: data.nextInvoiceNo
+        }));
+      }
+    } catch (err) {
+      console.error('Failed to fetch next sequential invoice number:', err);
     }
-  }, [billData.checkInDateTime, billData.checkOutDateTime, autoCalcDays]);
+  };
 
-  // Handle Room Type Change
-  const handleRoomTypeChange = (e) => {
-    const selectedName = e.target.value;
-    const foundRoom = hotel.roomTypes?.find(r => r.name === selectedName);
+  useEffect(() => {
+    if (!initialBillData && hotel?.hotelId) {
+      fetchNextInvoiceNumber();
+    }
+  }, [hotel?.hotelId, initialBillData]);
+
+  // Update when initialBillData changes
+  useEffect(() => {
+    if (initialBillData) {
+      const b = { ...initialBillData };
+      if (!b.checkInDate && b.checkInDateTime) {
+        b.checkInDate = b.checkInDateTime.slice(0, 10);
+      }
+      if (!b.checkOutDate && b.checkOutDateTime) {
+        b.checkOutDate = b.checkOutDateTime.slice(0, 10);
+      }
+      setBillData(b);
+    }
+  }, [initialBillData]);
+
+  // Handle Multiple Rooms Selected from Modal
+  const handleRoomsSelected = (rooms) => {
+    if (!rooms || rooms.length === 0) return;
+
+    const roomNumbers = rooms.map(r => r.roomNumber).join(', ');
+    const roomTypes = [...new Set(rooms.map(r => r.roomType))].join(', ');
+
+    setBillData(prev => {
+      const updatedSelectedRooms = rooms.map(r => {
+        const existing = prev.selectedRooms?.find(er => er.roomNumber === r.roomNumber);
+        const rent = existing && existing.rentPerDay !== undefined
+          ? existing.rentPerDay
+          : (parseFloat(r.defaultRent || r.rentPerDay) || 2000);
+        return {
+          roomNumber: r.roomNumber,
+          roomType: r.roomType || 'Standard Room',
+          rentPerDay: rent
+        };
+      });
+
+      const totalRentPerDay = updatedSelectedRooms.reduce((sum, r) => sum + (parseFloat(r.rentPerDay) || 0), 0);
+
+      return {
+        ...prev,
+        roomNumber: roomNumbers,
+        roomType: roomTypes,
+        selectedRooms: updatedSelectedRooms,
+        roomRentPerDay: totalRentPerDay
+      };
+    });
+
+    // Warning check
+    const issueRoom = rooms.find(r => r.activeIssues && r.activeIssues.length > 0);
+    if (issueRoom) {
+      setSelectedRoomWarning(`Room ${issueRoom.roomNumber}: ${issueRoom.activeIssues[0].issue}`);
+    } else {
+      setSelectedRoomWarning('');
+    }
+  };
+
+  // Change individual room rate when multiple rooms are booked
+  const handleSpecificRoomRateChange = (roomNumber, val) => {
+    const parsed = val === '' ? 0 : parseFloat(val);
+    const newRate = isNaN(parsed) ? 0 : Math.max(0, parsed);
+
+    setBillData(prev => {
+      const updated = (prev.selectedRooms || []).map(r => {
+        if (r.roomNumber === roomNumber) {
+          return { ...r, rentPerDay: newRate };
+        }
+        return r;
+      });
+
+      const totalRent = updated.reduce((sum, r) => sum + (parseFloat(r.rentPerDay) || 0), 0);
+
+      return {
+        ...prev,
+        selectedRooms: updated,
+        roomRentPerDay: totalRent
+      };
+    });
+  };
+
+  // Change single room rate
+  const handleSingleRoomRateChange = (newRate) => {
+    const rate = Math.max(0, newRate);
+    const updatedRooms = (billData.selectedRooms || []).map(r => ({ ...r, rentPerDay: rate }));
     setBillData(prev => ({
       ...prev,
-      roomType: selectedName,
-      roomRentPerDay: foundRoom ? foundRoom.defaultRent : prev.roomRentPerDay
+      roomRentPerDay: rate,
+      selectedRooms: updatedRooms.length > 0 ? updatedRooms : [{ roomNumber: prev.roomNumber, roomType: prev.roomType, rentPerDay: rate }]
     }));
   };
 
-  // Perform Calculations
-  const roomRent = Math.max(0, parseFloat(billData.roomRentPerDay) || 0);
+  // Helper to compute next day (YYYY-MM-DD)
+  const getNextDayDateString = (dateStr) => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr + 'T00:00:00');
+    if (isNaN(d.getTime())) return '';
+    d.setDate(d.getDate() + 1);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  // Handle Check-in Date Change with automatic restriction on Check-out Date
+  const handleCheckInDateChange = (newInDate) => {
+    if (!newInDate) return;
+    setAutoCalcDays(true);
+
+    const minAllowedOutDate = getNextDayDateString(newInDate);
+    const currentOutDate = billData.checkOutDate || (billData.checkOutDateTime ? billData.checkOutDateTime.slice(0, 10) : '');
+
+    // If current check-out date is missing or on/before the new check-in date, auto advance to the next day
+    const mustBumpOutDate = !currentOutDate || currentOutDate <= newInDate;
+    const finalOutDate = mustBumpOutDate ? minAllowedOutDate : currentOutDate;
+
+    setBillData(prev => ({
+      ...prev,
+      checkInDate: newInDate,
+      checkInDateTime: `${newInDate}T12:00`,
+      checkOutDate: finalOutDate,
+      checkOutDateTime: `${finalOutDate}T11:00`
+    }));
+  };
+
+  // Handle Check-out Date Change with strict validation
+  const handleCheckOutDateChange = (newOutDate) => {
+    if (!newOutDate) return;
+    setAutoCalcDays(true);
+
+    const activeInDate = billData.checkInDate || (billData.checkInDateTime ? billData.checkInDateTime.slice(0, 10) : todayStr);
+    const minAllowedOutDate = getNextDayDateString(activeInDate);
+
+    // If selected checkout date is on or before checkin date, enforce minimum allowed checkout date
+    const finalOutDate = (newOutDate <= activeInDate) ? minAllowedOutDate : newOutDate;
+
+    setBillData(prev => ({
+      ...prev,
+      checkOutDate: finalOutDate,
+      checkOutDateTime: `${finalOutDate}T11:00`
+    }));
+  };
+
+  // Auto calculate days between checkin date and checkout date (PURE DATE CALCULATION)
+  useEffect(() => {
+    const inDateStr = billData.checkInDate || (billData.checkInDateTime ? billData.checkInDateTime.slice(0, 10) : '');
+    const outDateStr = billData.checkOutDate || (billData.checkOutDateTime ? billData.checkOutDateTime.slice(0, 10) : '');
+    if (!inDateStr || !outDateStr) return;
+
+    const d1 = new Date(inDateStr + 'T00:00:00');
+    const d2 = new Date(outDateStr + 'T00:00:00');
+    if (isNaN(d1.getTime()) || isNaN(d2.getTime())) return;
+
+    const diffDays = Math.round((d2.getTime() - d1.getTime()) / (1000 * 3600 * 24));
+    const calcDays = Math.max(1, diffDays);
+
+    if (autoCalcDays && calcDays !== billData.numDays) {
+      setBillData(prev => ({ ...prev, numDays: calcDays }));
+    }
+  }, [billData.checkInDate, billData.checkOutDate, billData.checkInDateTime, billData.checkOutDateTime, autoCalcDays]);
+
+  // Handle Room Type Change (single room manual override)
+  const handleRoomTypeChange = (e) => {
+    const selectedName = e.target.value;
+    const foundRoom = hotel.roomTypes?.find(r => r.name === selectedName);
+    const newRent = foundRoom ? foundRoom.defaultRent : billData.roomRentPerDay;
+    setBillData(prev => ({
+      ...prev,
+      roomType: selectedName,
+      roomRentPerDay: newRent,
+      selectedRooms: prev.selectedRooms?.length > 0
+        ? prev.selectedRooms.map(r => ({ ...r, roomType: selectedName, rentPerDay: newRent }))
+        : prev.selectedRooms
+    }));
+  };
+
+  // Perform Calculations (Supporting multiple itemized rooms)
   const days = Math.max(1, parseInt(billData.numDays) || 1);
   const extra = Math.max(0, parseFloat(billData.extraCharges) || 0);
   const advance = Math.max(0, parseFloat(billData.advancePaid) || 0);
 
-  const baseAccommodation = roomRent * days;
+  // If multiple rooms are selected, itemize each room
+  const activeRoomsList = (billData.selectedRooms && billData.selectedRooms.length > 0)
+    ? billData.selectedRooms
+    : [{ 
+        roomNumber: billData.roomNumber || '302', 
+        roomType: billData.roomType || 'Deluxe Room', 
+        rentPerDay: Math.max(0, parseFloat(billData.roomRentPerDay) || 0) 
+      }];
+
+  const itemizedRooms = activeRoomsList.map(r => ({
+    roomNumber: r.roomNumber,
+    roomType: r.roomType,
+    rentPerDay: parseFloat(r.rentPerDay) || 0,
+    days,
+    total: (parseFloat(r.rentPerDay) || 0) * days
+  }));
+
+  const baseAccommodation = itemizedRooms.reduce((sum, r) => sum + r.total, 0);
+  const totalDailyRent = itemizedRooms.reduce((sum, r) => sum + r.rentPerDay, 0);
   const subtotal = baseAccommodation + extra;
 
   const cgst = Math.round((subtotal * 0.025) * 100) / 100;
   const sgst = Math.round((subtotal * 0.025) * 100) / 100;
-  const totalGst = cgst + sgst;
+  const totalGst = Math.round((cgst + sgst) * 100) / 100;
 
   const netTotal = Math.round((subtotal + totalGst) * 100) / 100;
   const balanceDue = Math.round((netTotal - advance) * 100) / 100;
   const amountInWords = numberToWordsINR(balanceDue > 0 ? balanceDue : netTotal);
 
   const calculations = {
-    roomRentPerDay: roomRent,
+    roomRentPerDay: totalDailyRent,
+    roomsList: itemizedRooms,
     baseAccommodation,
     extraCharges: extra,
     subtotal,
@@ -99,21 +321,44 @@ export default function BillingEngine({ hotel, token, onLogout, onOpenHistory })
     amountInWords
   };
 
-  // Save Bill to Backend MongoDB / Database
+  // Save / Update Bill to Backend MongoDB
   const handleSaveBill = async () => {
+    if (!billData.customerName) {
+      alert('Please enter guest name.');
+      return;
+    }
+    if (!billData.roomNumber) {
+      alert('Please select at least one room for this bill.');
+      return;
+    }
+
     setIsSaving(true);
     setSaveSuccessMsg('');
     try {
+      const inDate = billData.checkInDate || (billData.checkInDateTime ? billData.checkInDateTime.slice(0, 10) : todayStr);
+      const outDate = billData.checkOutDate || (billData.checkOutDateTime ? billData.checkOutDateTime.slice(0, 10) : tomorrowStr);
+
       const payload = {
         ...billData,
         ...calculations,
+        checkInDate: inDate,
+        checkOutDate: outDate,
+        checkInDateTime: `${inDate}T12:00`,
+        checkOutDateTime: `${outDate}T11:00`,
+        selectedRooms: billData.selectedRooms || [],
+        roomsList: itemizedRooms,
         hotelId: hotel.hotelId,
         hotelName: hotel.name,
-        paymentStatus: balanceDue <= 0 ? 'PAID' : 'DUE'
+        paymentStatus: balanceDue <= 0 ? 'PAID' : 'DUE',
+        billStatus: billData.billStatus || 'SAVED'
       };
 
-      const res = await fetch('/api/bills', {
-        method: 'POST',
+      const billId = billData._id || billData.id;
+      const url = billId ? `/api/bills/${billId}` : '/api/bills';
+      const method = billId ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -124,6 +369,8 @@ export default function BillingEngine({ hotel, token, onLogout, onOpenHistory })
       const data = await res.json();
       if (data.success) {
         setSaveSuccessMsg(`Bill ${data.bill.invoiceNo} saved successfully to database!`);
+        setBillData(data.bill);
+        if (onSaveSuccess) onSaveSuccess(data.bill);
         setTimeout(() => setSaveSuccessMsg(''), 4000);
       } else {
         alert(data.message || 'Failed to save bill.');
@@ -132,6 +379,43 @@ export default function BillingEngine({ hotel, token, onLogout, onOpenHistory })
       alert('Error saving bill to server.');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // Checkout and Print
+  const handleCheckoutAndPrint = async () => {
+    const billId = billData._id || billData.id;
+    if (!billId) {
+      alert('Please click "Save Bill" first to record this stay before checking out.');
+      return;
+    }
+
+    if (!window.confirm(`Check out guest ${billData.customerName} from Room(s) ${billData.roomNumber}? This will mark invoice as CLOSED and place the room(s) in 30-minute housekeeping.`)) {
+      return;
+    }
+
+    setIsCheckingOut(true);
+    try {
+      const res = await fetch(`/api/bills/${billId}/checkout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSaveSuccessMsg(data.message);
+        setBillData(data.bill);
+        window.print();
+        if (onCheckoutSuccess) onCheckoutSuccess(data.bill);
+      } else {
+        alert(data.message || 'Checkout failed.');
+      }
+    } catch (err) {
+      alert('Server error during checkout.');
+    } finally {
+      setIsCheckingOut(false);
     }
   };
 
@@ -146,8 +430,8 @@ export default function BillingEngine({ hotel, token, onLogout, onOpenHistory })
     const country = billData.countryCode.replace('+', '');
     const fullPhone = cleanPhone.startsWith(country) ? cleanPhone : country + cleanPhone;
 
-    const message = 
-`🏨 *${hotel.name.toUpperCase()} - TAX INVOICE*
+    const message =
+      `🏨 *${hotel.name.toUpperCase()} - TAX INVOICE*
 *${hotel.subText}*
 📍 ${hotel.address}
 📞 Mobile: ${hotel.phone} | GSTIN: ${hotel.gstin}
@@ -155,7 +439,7 @@ export default function BillingEngine({ hotel, token, onLogout, onOpenHistory })
 📄 *Invoice No:* ${billData.invoiceNo}
 📅 *Date:* ${billData.billDate}
 👤 *Guest Name:* ${billData.customerName}
-🛏️ *Room:* ${billData.roomType} (Room ${billData.roomNumber})
+🛏️ *Room(s):* ${billData.roomNumber} (${billData.roomType})
 ⏳ *Duration:* ${billData.numDays} Day(s)
 ━━━━━━━━━━━━━━━━━━━━━
 💰 *Net Total Bill:* ₹ ${formatINR(netTotal)}
@@ -167,52 +451,76 @@ export default function BillingEngine({ hotel, token, onLogout, onOpenHistory })
     window.open(`https://wa.me/${fullPhone}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
-  // Download PDF
+  // Download PDF (with masked ID for customer copy privacy, exact A4 single-page format)
   const handleDownloadPDF = () => {
     const el = document.getElementById('invoice-card');
-    if (window.html2pdf && el) {
-      window.html2pdf().set({
-        margin: [6, 8, 6, 8],
-        filename: `${hotel.name.replace(/\s+/g, '-')}-Invoice-${billData.invoiceNo}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-      }).from(el).save();
-    } else {
-      window.print();
-    }
+    const safeInv = String(billData.invoiceNo).replace(/\//g, '-');
+    const filename = `${hotel.name.replace(/\s+/g, '-')}-Invoice-${safeInv}.pdf`;
+    downloadInvoicePdf(el, filename);
   };
 
-  // Reset Form
-  const handleReset = () => {
+  // Reset Form for Fresh Guest Check-in
+  const handleReset = async () => {
     if (window.confirm('Start new invoice? Current unsaved entries will be reset.')) {
-      setBillData(prev => ({
-        ...prev,
-        invoiceNo: `${hotel.hotelId === 'hotel-1' ? 'HR' : hotel.hotelId === 'hotel-2' ? 'HSP' : 'HSP2'}-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+      let nextInv = '';
+      try {
+        const res = await fetch(`/api/bills/next-invoice-no?hotelId=${hotel.hotelId}&hotelName=${encodeURIComponent(hotel.name || '')}`);
+        const data = await res.json();
+        if (data.success && data.nextInvoiceNo) nextInv = data.nextInvoiceNo;
+      } catch (e) {}
+
+      const fallbackInv = `${initialPrefix}/${yy}/00001`;
+
+      setBillData({
+        invoiceNo: nextInv || fallbackInv,
+        billDate: formattedBillDate,
         customerName: '',
+        countryCode: '+91',
         customerPhone: '',
+        idType: 'Aadhaar Card',
         idNumber: '',
+        roomType: hotel.roomTypes?.[0]?.name || 'Standard Room',
         roomNumber: '',
+        selectedRooms: [],
         numPersons: 2,
+        checkInDate: todayStr,
+        checkOutDate: tomorrowStr,
+        checkInDateTime: `${todayStr}T12:00`,
+        checkOutDateTime: `${tomorrowStr}T11:00`,
+        numDays: 1,
+        roomRentPerDay: hotel.roomTypes?.[0]?.defaultRent || 1500,
         extraCharges: 0,
         advancePaid: 0,
-        remarks: ''
-      }));
+        paymentMode: 'Cash',
+        remarks: 'Thank you for choosing to stay with us. Visit again!',
+        showManagerSign: true
+      });
+      setSelectedRoomWarning('');
     }
   };
 
-  // Load sample data
-  const handleLoadSample = () => {
+  // Sample Data Fill
+  const handleSampleFill = () => {
     setBillData(prev => ({
       ...prev,
       customerName: 'Sourav Ganguly',
+      countryCode: '+91',
       customerPhone: '9831098765',
       idType: 'Aadhaar Card',
       idNumber: '4521 8974 6502',
-      roomType: hotel.roomTypes?.[2]?.name || 'Super Deluxe Room',
-      roomRentPerDay: hotel.roomTypes?.[2]?.defaultRent || 3000,
-      roomNumber: '302',
-      numPersons: 4,
+      roomNumber: '302, 304',
+      roomType: 'Super Deluxe Room, Deluxe Room',
+      selectedRooms: [
+        { roomNumber: '302', roomType: 'Super Deluxe Room', rentPerDay: 3000 },
+        { roomNumber: '304', roomType: 'Deluxe Room', rentPerDay: 2500 }
+      ],
+      numPersons: 5,
+      checkInDate: todayStr,
+      checkOutDate: tomorrowStr,
+      checkInDateTime: `${todayStr}T12:00`,
+      checkOutDateTime: `${tomorrowStr}T11:00`,
+      numDays: 2,
+      roomRentPerDay: 5500,
       extraCharges: 600,
       advancePaid: 2000,
       paymentMode: 'UPI / QR',
@@ -221,126 +529,169 @@ export default function BillingEngine({ hotel, token, onLogout, onOpenHistory })
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col justify-between">
-      
+    <div className="min-h-screen bg-slate-100 flex flex-col justify-between print:min-h-0 print:bg-white print:block">
+
       {/* Top Navbar */}
       <header className="no-print bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          
+
           {/* Active Hotel Brand */}
           <div className="flex items-center space-x-3">
-            <div 
+            {onCloseBilling && (
+              <button
+                type="button"
+                onClick={onCloseBilling}
+                className="px-2.5 py-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition flex items-center gap-1 mr-1 cursor-pointer"
+                title="Return to Manager Operations Hub"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Hub</span>
+              </button>
+            )}
+            <div
               style={{ backgroundColor: hotel.themeColor || '#1a365d' }}
-              className="w-10 h-10 rounded-xl text-white flex items-center justify-center font-serif font-bold text-xl shadow-md"
+              className="w-10 h-10 rounded-xl text-white flex items-center justify-center font-serif font-bold text-xl shadow-sm flex-shrink-0"
             >
               {hotel.name.charAt(0)}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-base sm:text-lg font-bold text-slate-800 leading-tight">
+                <h1 className="text-base sm:text-lg font-bold text-slate-900 leading-tight">
                   {hotel.name}
                 </h1>
-                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full hidden sm:inline-flex items-center gap-1">
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Manager POS
                 </span>
               </div>
-              <p className="text-xs text-slate-500 hidden sm:block">
+              <p className="text-xs text-slate-500 font-medium hidden sm:block">
                 {hotel.subText} &bull; {hotel.phone}
               </p>
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex items-center space-x-1.5 sm:space-x-2">
+          {/* Top Action Buttons */}
+          <div className="flex items-center space-x-2">
             <button
-              onClick={handleLoadSample}
-              className="px-2.5 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition flex items-center gap-1"
-              title="Load demo data"
+              type="button"
+              onClick={handleSampleFill}
+              className="px-2.5 py-1.5 text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition flex items-center gap-1 cursor-pointer"
+              title="Populate test guest details"
             >
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-              <span className="hidden md:inline">Sample</span>
+              <Sparkles className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Sample</span>
             </button>
 
             <button
+              type="button"
               onClick={handleReset}
-              className="px-2.5 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition flex items-center gap-1"
-              title="New blank bill"
+              className="px-2.5 py-1.5 text-xs font-semibold text-slate-600 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg transition flex items-center gap-1 cursor-pointer"
+              title="Clear form for a new guest"
             >
-              <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
-              <span className="hidden md:inline">New</span>
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">New</span>
             </button>
 
             <button
+              type="button"
               onClick={handleSaveBill}
               disabled={isSaving}
-              className="px-3 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition shadow-sm flex items-center gap-1.5"
+              className="px-3 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition shadow-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              title="Save bill record to database"
             >
               <Save className="w-3.5 h-3.5" />
               <span>{isSaving ? 'Saving...' : 'Save Bill'}</span>
             </button>
 
-            <button
-              onClick={onOpenHistory}
-              className="px-2.5 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition flex items-center gap-1"
-              title="View past bills"
-            >
-              <History className="w-3.5 h-3.5 text-slate-600" />
-              <span className="hidden sm:inline">Records</span>
-            </button>
+            {(billData._id || billData.id) && billData.billStatus !== 'CLOSED' && (
+              <button
+                type="button"
+                onClick={handleCheckoutAndPrint}
+                disabled={isCheckingOut}
+                className="px-3.5 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition shadow-sm flex items-center gap-1.5 cursor-pointer"
+                title="Check out guest, close bill, and enter 30-min housekeeping cycle"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>{isCheckingOut ? 'Checking Out...' : 'Check Out & Print'}</span>
+              </button>
+            )}
+
+            {onOpenHistory && (
+              <button
+                type="button"
+                onClick={onOpenHistory}
+                className="px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg transition flex items-center gap-1 cursor-pointer"
+                title="View bill records history"
+              >
+                <History className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Records</span>
+              </button>
+            )}
 
             <button
+              type="button"
               onClick={handleWhatsAppShare}
-              className="px-2.5 py-1.5 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition shadow-sm flex items-center gap-1"
+              className="px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition shadow-sm flex items-center gap-1.5 cursor-pointer"
             >
               <Share2 className="w-3.5 h-3.5" />
               <span className="hidden md:inline">WhatsApp</span>
             </button>
 
             <button
+              type="button"
               onClick={handleDownloadPDF}
-              className="px-2.5 py-1.5 text-xs font-medium text-white bg-brand-700 hover:bg-brand-800 rounded-lg transition shadow-sm flex items-center gap-1"
+              className="px-3 py-1.5 text-xs font-bold text-white bg-brand-800 hover:bg-brand-900 rounded-lg transition shadow-sm flex items-center gap-1.5 cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">PDF</span>
+              <span>PDF</span>
             </button>
 
             <button
-              onClick={() => window.print()}
-              className="px-3.5 py-1.5 text-xs font-bold text-white bg-slate-900 hover:bg-black rounded-lg transition shadow-sm flex items-center gap-1.5"
+              type="button"
+              onClick={() => {
+                const el = document.getElementById('invoice-card');
+                const safeInv = String(billData.invoiceNo || 'INV').replace(/[\/\\?%*:|"<>]/g, '-');
+                const filename = `${hotel.name.replace(/\s+/g, '-')}-Invoice-${safeInv}.pdf`;
+                printInvoicePdf(el, filename);
+              }}
+              className="px-3 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition shadow-sm flex items-center gap-1.5 cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5" />
               <span>Print</span>
             </button>
 
-            <button
-              onClick={onLogout}
-              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition ml-2"
-              title="Switch Property / Exit"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
+            {onLogout && (
+              <button
+                type="button"
+                onClick={onLogout}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                title="Logout"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            )}
           </div>
-
         </div>
       </header>
 
-      {/* Mobile Tabs */}
+      {/* Mobile Tab Switcher */}
       <div className="no-print lg:hidden bg-white border-b border-slate-200 px-4 py-2 flex items-center justify-center gap-2 sticky top-16 z-30">
         <button
+          type="button"
           onClick={() => setMobileTab('form')}
-          className={`flex-1 py-2 text-center text-xs font-semibold rounded-lg transition ${
-            mobileTab === 'form' ? 'bg-brand-800 text-white shadow-sm' : 'bg-slate-100 text-slate-700'
+          className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition ${
+            mobileTab === 'form' ? 'bg-brand-800 text-white shadow-xs' : 'bg-slate-100 text-slate-600'
           }`}
         >
-          Edit Particulars
+          Guest & Room Form
         </button>
         <button
+          type="button"
           onClick={() => setMobileTab('preview')}
-          className={`flex-1 py-2 text-center text-xs font-semibold rounded-lg transition ${
-            mobileTab === 'preview' ? 'bg-brand-800 text-white shadow-sm' : 'bg-slate-100 text-slate-700'
+          className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition ${
+            mobileTab === 'preview' ? 'bg-brand-800 text-white shadow-xs' : 'bg-slate-100 text-slate-600'
           }`}
         >
-          Live Receipt
+          Invoice Receipt Preview
         </button>
       </div>
 
@@ -352,16 +703,16 @@ export default function BillingEngine({ hotel, token, onLogout, onOpenHistory })
         </div>
       )}
 
-      {/* Workspace Grid */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full flex-1">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          
+      {/* Main Form & Preview Workspace */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full flex-1 print:max-w-none print:w-full print:p-0 print:m-0">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start print:block print:w-full">
+
           {/* ======================================= */}
-          {/* LEFT: INPUT CONTROLS                    */}
+          {/* LEFT: GUEST PARTICULARS & TARIFF FORM   */}
           {/* ======================================= */}
           <section className={`lg:col-span-5 space-y-4 no-print ${mobileTab === 'preview' ? 'hidden lg:block' : ''}`}>
-            
-            {/* Card 1: Guest Information */}
+
+            {/* Card 1: Guest Particulars */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
               <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2 pb-3 border-b border-slate-100 mb-3">
                 <User className="w-4 h-4 text-brand-500" />
@@ -371,40 +722,38 @@ export default function BillingEngine({ hotel, token, onLogout, onOpenHistory })
               <div className="space-y-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Customer Full Name <span className="text-red-500">*</span>
+                    Customer Full Name <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
+                    placeholder="e.g. Rahul Banerjee"
                     value={billData.customerName}
                     onChange={(e) => setBillData({ ...billData, customerName: e.target.value })}
-                    placeholder="e.g., Rajesh Sharma"
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white"
+                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:bg-white"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Mobile / WhatsApp <span className="text-red-500">*</span>
+                    Mobile / WhatsApp <span className="text-rose-500">*</span>
                   </label>
-                  <div className="flex rounded-lg shadow-sm">
+                  <div className="flex">
                     <select
                       value={billData.countryCode}
                       onChange={(e) => setBillData({ ...billData, countryCode: e.target.value })}
-                      className="px-2.5 py-2 text-xs bg-slate-100 border border-r-0 border-slate-300 rounded-l-lg text-slate-700 font-medium"
+                      className="px-2 py-2 text-xs bg-slate-100 border border-r-0 border-slate-300 rounded-l-lg font-medium text-slate-700"
                     >
-                      <option value="+91">🇮🇳 +91</option>
-                      <option value="+880">🇧🇩 +880</option>
-                      <option value="+977">🇳🇵 +977</option>
-                      <option value="+1">🇺🇸 +1</option>
-                      <option value="+44">🇬🇧 +44</option>
-                      <option value="+971">🇦🇪 +971</option>
+                      <option value="+91">IN +91</option>
+                      <option value="+1">US +1</option>
+                      <option value="+44">UK +44</option>
+                      <option value="+880">BD +880</option>
                     </select>
                     <input
                       type="tel"
+                      placeholder="9830124567"
                       value={billData.customerPhone}
                       onChange={(e) => setBillData({ ...billData, customerPhone: e.target.value })}
-                      placeholder="10-digit mobile"
-                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white"
+                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-r-lg font-mono focus:ring-2 focus:ring-brand-500 focus:bg-white"
                     />
                   </div>
                 </div>
@@ -415,7 +764,7 @@ export default function BillingEngine({ hotel, token, onLogout, onOpenHistory })
                     <select
                       value={billData.idType}
                       onChange={(e) => setBillData({ ...billData, idType: e.target.value })}
-                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg"
                     >
                       <option value="Aadhaar Card">Aadhaar Card</option>
                       <option value="Voter ID">Voter ID</option>
@@ -429,10 +778,10 @@ export default function BillingEngine({ hotel, token, onLogout, onOpenHistory })
                     <label className="block text-xs font-semibold text-slate-700 mb-1">ID Number</label>
                     <input
                       type="text"
+                      placeholder="7845 2109 3321"
                       value={billData.idNumber}
                       onChange={(e) => setBillData({ ...billData, idNumber: e.target.value })}
-                      placeholder="ID / Card No"
-                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg font-mono"
                     />
                   </div>
                 </div>
@@ -447,30 +796,55 @@ export default function BillingEngine({ hotel, token, onLogout, onOpenHistory })
               </h2>
 
               <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Room Category</label>
-                    <select
-                      value={billData.roomType}
-                      onChange={handleRoomTypeChange}
-                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium"
+                
+                {/* Room Selector Box */}
+                <div className="p-3 bg-blue-50/70 rounded-xl border border-blue-200">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <span className="text-xs font-medium text-slate-500">
+                        {billData.selectedRooms && billData.selectedRooms.length > 1 
+                          ? `ASSIGNED ROOMS (${billData.selectedRooms.length}):` 
+                          : 'ASSIGNED ROOM:'}
+                      </span>
+                      {billData.selectedRooms && billData.selectedRooms.length > 0 ? (
+                        <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                          {billData.selectedRooms.map(rm => (
+                            <div key={rm.roomNumber} className="flex items-center gap-1 bg-white px-2 py-0.5 rounded border border-blue-300 shadow-2xs">
+                              <span className="font-mono text-xs font-extrabold text-blue-900">Room {rm.roomNumber}</span>
+                              <span className="text-[10.5px] text-slate-600">({rm.roomType} &bull; ₹{rm.rentPerDay}/d)</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : billData.roomNumber ? (
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="font-mono text-base font-extrabold text-blue-900 bg-white px-2 py-0.5 rounded border border-blue-300">
+                            Room {billData.roomNumber}
+                          </span>
+                          <span className="text-xs font-semibold text-blue-800">
+                            {billData.roomType} &bull; ₹{billData.roomRentPerDay}/day
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-xs font-semibold text-rose-600 italic block mt-0.5">No room selected. Please click Select Room.</span>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsRoomSelectorOpen(true)}
+                      className="px-3.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition flex items-center justify-center gap-1.5 self-start sm:self-auto cursor-pointer"
                     >
-                      {hotel.roomTypes?.map((r, i) => (
-                        <option key={i} value={r.name}>{r.name} (₹{r.defaultRent})</option>
-                      ))}
-                    </select>
+                      <BedDouble className="w-3.5 h-3.5" />
+                      <span>{billData.roomNumber ? 'Change / Add Rooms' : 'Select Room'}</span>
+                    </button>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Room No(s)</label>
-                    <input
-                      type="text"
-                      value={billData.roomNumber}
-                      onChange={(e) => setBillData({ ...billData, roomNumber: e.target.value })}
-                      placeholder="e.g., 204 or 204, 205"
-                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium"
-                    />
-                  </div>
+                  {selectedRoomWarning && (
+                    <div className="mt-2 p-2 rounded-lg bg-amber-100 border border-amber-300 text-amber-800 text-[11px] font-medium flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 text-amber-600" />
+                      <span>{selectedRoomWarning}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -480,7 +854,7 @@ export default function BillingEngine({ hotel, token, onLogout, onOpenHistory })
                       type="number"
                       min={1}
                       value={billData.numPersons}
-                      onChange={(e) => setBillData({ ...billData, numPersons: e.target.value })}
+                      onChange={(e) => setBillData({ ...billData, numPersons: parseInt(e.target.value) || 1 })}
                       className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg"
                     />
                   </div>
@@ -496,38 +870,46 @@ export default function BillingEngine({ hotel, token, onLogout, onOpenHistory })
                       value={billData.numDays}
                       onChange={(e) => {
                         setAutoCalcDays(false);
-                        setBillData({ ...billData, numDays: e.target.value });
+                        setBillData({ ...billData, numDays: parseInt(e.target.value) || 1 });
                       }}
                       className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg font-bold"
                     />
                   </div>
                 </div>
 
+                {/* Pure Date Pickers (Check-in Date & Check-out Date - strictly validated) */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Check-in Time</label>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Check-in Date</label>
                     <input
-                      type="datetime-local"
-                      value={billData.checkInDateTime}
-                      onChange={(e) => {
-                        setAutoCalcDays(true);
-                        setBillData({ ...billData, checkInDateTime: e.target.value });
-                      }}
-                      className="w-full px-2 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg"
+                      type="date"
+                      value={billData.checkInDate || (billData.checkInDateTime ? billData.checkInDateTime.slice(0, 10) : todayStr)}
+                      onChange={(e) => handleCheckInDateChange(e.target.value)}
+                      className="w-full px-3 py-2 text-xs font-medium bg-slate-50 border border-slate-300 rounded-lg focus:bg-white"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Check-out Time</label>
-                    <input
-                      type="datetime-local"
-                      value={billData.checkOutDateTime}
-                      onChange={(e) => {
-                        setAutoCalcDays(true);
-                        setBillData({ ...billData, checkOutDateTime: e.target.value });
-                      }}
-                      className="w-full px-2 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg"
-                    />
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-semibold text-slate-700">Check-out Date</label>
+                      <span className="text-[10px] text-blue-700 font-semibold bg-blue-50 px-1.5 py-0.5 rounded">
+                        &gt; Check-in
+                      </span>
+                    </div>
+                    {(() => {
+                      const curIn = billData.checkInDate || (billData.checkInDateTime ? billData.checkInDateTime.slice(0, 10) : todayStr);
+                      const minOut = getNextDayDateString(curIn);
+                      const curOut = billData.checkOutDate || (billData.checkOutDateTime ? billData.checkOutDateTime.slice(0, 10) : minOut);
+                      return (
+                        <input
+                          type="date"
+                          min={minOut}
+                          value={curOut < minOut ? minOut : curOut}
+                          onChange={(e) => handleCheckOutDateChange(e.target.value)}
+                          className="w-full px-3 py-2 text-xs font-medium bg-slate-50 border border-slate-300 rounded-lg focus:bg-white"
+                        />
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
@@ -541,23 +923,55 @@ export default function BillingEngine({ hotel, token, onLogout, onOpenHistory })
               </h2>
 
               <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Room Rent Per Day (₹)</label>
-                  <input
-                    type="number"
-                    value={billData.roomRentPerDay}
-                    onChange={(e) => setBillData({ ...billData, roomRentPerDay: e.target.value })}
-                    className="w-full px-3 py-2 text-xs font-bold bg-slate-50 border border-slate-300 rounded-lg"
-                  />
-                </div>
+                
+                {/* Dynamic Itemized Room Rent(s) */}
+                {billData.selectedRooms && billData.selectedRooms.length > 1 ? (
+                  <div className="space-y-2.5 p-3 bg-blue-50/60 rounded-xl border border-blue-200">
+                    <div className="flex items-center justify-between text-xs font-bold text-blue-950 pb-1 border-b border-blue-200">
+                      <span>Itemized Room Rents ({billData.selectedRooms.length} Rooms):</span>
+                      <span className="text-emerald-700 font-extrabold">Combined: ₹{formatINR(totalDailyRent)}/day</span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-0.5">
+                      {billData.selectedRooms.map((rm) => (
+                        <div key={rm.roomNumber} className="bg-white p-2.5 rounded-lg border border-slate-200 shadow-2xs">
+                          <label className="block text-[11px] font-bold text-slate-800 mb-1">
+                            Room {rm.roomNumber} Rent/Day (₹)
+                            <span className="font-normal text-slate-500 block text-[10px] truncate">{rm.roomType}</span>
+                          </label>
+                          <input
+                            type="number"
+                            min={0}
+                            value={rm.rentPerDay}
+                            onChange={(e) => handleSpecificRoomRateChange(rm.roomNumber, parseFloat(e.target.value) || 0)}
+                            className="w-full px-2.5 py-1.5 text-xs font-mono font-bold bg-slate-50 border border-slate-300 rounded-lg text-slate-900"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Room Rent Per Day (₹) {billData.roomNumber ? `(Room ${billData.roomNumber})` : ''}
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={billData.roomRentPerDay}
+                      onChange={(e) => handleSingleRoomRateChange(parseFloat(e.target.value) || 0)}
+                      className="w-full px-3 py-2 text-xs font-bold bg-slate-50 border border-slate-300 rounded-lg"
+                    />
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">Extra Guest (₹)</label>
                     <input
                       type="number"
+                      min={0}
                       value={billData.extraCharges}
-                      onChange={(e) => setBillData({ ...billData, extraCharges: e.target.value })}
+                      onChange={(e) => setBillData({ ...billData, extraCharges: parseFloat(e.target.value) || 0 })}
                       className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg"
                     />
                   </div>
@@ -566,8 +980,9 @@ export default function BillingEngine({ hotel, token, onLogout, onOpenHistory })
                     <label className="block text-xs font-semibold text-slate-700 mb-1">Advance Paid (₹)</label>
                     <input
                       type="number"
+                      min={0}
                       value={billData.advancePaid}
-                      onChange={(e) => setBillData({ ...billData, advancePaid: e.target.value })}
+                      onChange={(e) => setBillData({ ...billData, advancePaid: parseFloat(e.target.value) || 0 })}
                       className="w-full px-3 py-2 text-xs font-bold text-emerald-700 bg-slate-50 border border-slate-300 rounded-lg"
                     />
                   </div>
@@ -589,12 +1004,13 @@ export default function BillingEngine({ hotel, token, onLogout, onOpenHistory })
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Invoice Number</label>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Invoice Number (Sequential)</label>
                     <input
                       type="text"
                       value={billData.invoiceNo}
                       onChange={(e) => setBillData({ ...billData, invoiceNo: e.target.value })}
-                      className="w-full px-3 py-2 text-xs font-mono font-bold bg-slate-50 border border-slate-300 rounded-lg"
+                      placeholder="e.g. HR/26/00001"
+                      className="w-full px-3 py-2 text-xs font-mono font-bold bg-slate-50 border border-slate-300 rounded-lg text-brand-900"
                     />
                   </div>
                 </div>
@@ -616,17 +1032,16 @@ export default function BillingEngine({ hotel, token, onLogout, onOpenHistory })
           {/* ======================================= */}
           {/* RIGHT: LIVE PRINTABLE RECEIPT           */}
           {/* ======================================= */}
-          <section className={`lg:col-span-7 flex flex-col items-center ${mobileTab === 'form' ? 'hidden lg:flex' : 'flex'}`}>
-            
+          <section className={`lg:col-span-7 flex flex-col items-center ${mobileTab === 'form' ? 'hidden lg:flex' : 'flex'} print:!flex print:!w-full print:!block`}>
+
             {/* Status Indicator */}
             <div className="w-full flex items-center justify-between pb-2 mb-2 text-xs no-print px-1">
               <div className="flex items-center gap-2">
                 <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
                 <span className="font-semibold text-slate-600">Print-Ready Receipt ({hotel.name})</span>
               </div>
-              <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider ${
-                balanceDue <= 0 ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-amber-100 text-amber-800 border border-amber-300'
-              }`}>
+              <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider ${balanceDue <= 0 ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-amber-100 text-amber-800 border border-amber-300'
+                }`}>
                 {balanceDue <= 0 ? 'Paid in Full' : `Balance Due: ₹ ${formatINR(balanceDue)}`}
               </span>
             </div>
@@ -638,6 +1053,16 @@ export default function BillingEngine({ hotel, token, onLogout, onOpenHistory })
 
         </div>
       </main>
+
+      {/* Room Selector Modal (Supporting Multi-room Booking) */}
+      <RoomSelectorModal
+        isOpen={isRoomSelectorOpen}
+        onClose={() => setIsRoomSelectorOpen(false)}
+        hotelId={hotel.hotelId}
+        selectedRoomNumber={billData.roomNumber}
+        selectedRooms={billData.selectedRooms || []}
+        onSelectRooms={handleRoomsSelected}
+      />
 
     </div>
   );

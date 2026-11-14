@@ -3,6 +3,63 @@ const router = express.Router();
 const { db } = require('../db');
 const { verifyToken } = require('../middleware/auth');
 
+// Helper to generate unique sequential invoice number (HR/26/00001, HSP/26/00001, etc.)
+async function generateNextInvoiceNo(hotelId, hotelName = '') {
+  let prefix = 'HR';
+  if (hotelId === 'hotel-1' || /rojana/i.test(hotelName || '')) {
+    prefix = 'HR';
+  } else if (hotelId === 'hotel-2' || /sagar\s*priya/i.test(hotelName || '')) {
+    prefix = 'HSP';
+  } else if (hotelId === 'hotel-3' || /sea\s*pearl/i.test(hotelName || '')) {
+    prefix = 'HSP2';
+  } else if (hotelName) {
+    prefix = hotelName
+      .replace(/[^a-zA-Z\s]/g, '')
+      .split(/\s+/)
+      .map(w => w[0])
+      .join('')
+      .toUpperCase() || 'HB';
+  }
+
+  const yy = String(new Date().getFullYear()).slice(-2); // "26"
+  const prefixYear = `${prefix}/${yy}/`;
+
+  // Query all bills for this hotel matching the prefix
+  const allBills = await db.getBills({ hotelId });
+  let maxSeq = 0;
+
+  for (const b of allBills) {
+    if (b.invoiceNo && b.invoiceNo.startsWith(prefixYear)) {
+      const parts = b.invoiceNo.split('/');
+      if (parts.length >= 3) {
+        const num = parseInt(parts[2], 10);
+        if (!isNaN(num) && num > maxSeq) {
+          maxSeq = num;
+        }
+      }
+    }
+  }
+
+  const nextSeq = maxSeq + 1;
+  const nextInvoiceNo = `${prefixYear}${String(nextSeq).padStart(5, '0')}`;
+  return { prefix, yy, nextSeq, nextInvoiceNo };
+}
+
+// GET /api/bills/next-invoice-no (Fetch next sequential invoice number for a property)
+router.get('/next-invoice-no', async (req, res) => {
+  try {
+    const { hotelId, hotelName } = req.query;
+    if (!hotelId) {
+      return res.status(400).json({ success: false, message: 'hotelId is required' });
+    }
+    const info = await generateNextInvoiceNo(hotelId, hotelName);
+    res.json({ success: true, ...info });
+  } catch (err) {
+    console.error('Error getting next invoice no:', err);
+    res.status(500).json({ success: false, message: 'Failed to generate next invoice number' });
+  }
+});
+
 // POST /api/bills (Create new bill)
 router.post('/', async (req, res) => {
   try {
@@ -12,19 +69,39 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Missing required bill fields (hotelId, customerName, roomNumber, netTotal).' });
     }
 
-    // Auto generate invoice serial if not provided
-    if (!billData.invoiceNo) {
-      const year = new Date().getFullYear();
-      const prefix = billData.hotelId === 'hotel-1' ? 'HR' : billData.hotelId === 'hotel-2' ? 'HSP' : 'HSP2';
-      const rand = Math.floor(1000 + Math.random() * 9000);
-      billData.invoiceNo = `${prefix}-${year}-${rand}`;
+    // Auto generate sequential invoice serial if not provided or legacy format
+    if (!billData.invoiceNo || billData.invoiceNo.includes('-2026-')) {
+      const { nextInvoiceNo } = await generateNextInvoiceNo(billData.hotelId, billData.hotelName);
+      billData.invoiceNo = nextInvoiceNo;
+    } else {
+      // Check if invoiceNo already exists for another bill to guarantee uniqueness
+      const existing = await db.getBills({ hotelId: billData.hotelId });
+      const dup = existing.find(b => b.invoiceNo === billData.invoiceNo && (b._id || b.id) !== (billData._id || billData.id));
+      if (dup) {
+        const { nextInvoiceNo } = await generateNextInvoiceNo(billData.hotelId, billData.hotelName);
+        billData.invoiceNo = nextInvoiceNo;
+      }
     }
 
-    // Calculate or verify status
+    // Calculate status
     const balance = parseFloat(billData.balanceDue) || 0;
     billData.paymentStatus = balance <= 0 ? 'PAID' : 'DUE';
+    billData.billStatus = billData.billStatus || 'SAVED';
 
     const savedBill = await db.createBill(billData);
+
+    // Automatically mark the room as occupied by this guest
+    if (billData.roomNumber && billData.hotelId) {
+      await db.assignRoom(
+        billData.hotelId, 
+        billData.roomNumber, 
+        billData.customerName, 
+        savedBill.id || savedBill._id, 
+        savedBill.invoiceNo,
+        billData.checkInDateTime,
+        billData.checkOutDateTime
+      );
+    }
 
     res.status(201).json({
       success: true,
@@ -38,12 +115,22 @@ router.post('/', async (req, res) => {
 });
 
 // GET /api/bills (Query bills with filters)
-// Query params: hotelId, startDate, endDate, paymentMode, paymentStatus
+// Query params: hotelId, billStatus, startDate, endDate, paymentMode, paymentStatus
 router.get('/', async (req, res) => {
   try {
-    const { hotelId, startDate, endDate, paymentMode, paymentStatus } = req.query;
+    const { hotelId, billStatus, startDate, endDate, paymentMode, paymentStatus } = req.query;
     const filter = { hotelId, startDate, endDate, paymentMode, paymentStatus };
-    const bills = await db.getBills(filter);
+    let bills = await db.getBills(filter);
+
+    // Filter by billStatus ('SAVED' vs 'CLOSED') if provided
+    if (billStatus && billStatus !== 'all') {
+      if (billStatus === 'SAVED') {
+        bills = bills.filter(b => b.billStatus !== 'CLOSED');
+      } else if (billStatus === 'CLOSED') {
+        bills = bills.filter(b => b.billStatus === 'CLOSED');
+      }
+    }
+
     res.json({ success: true, count: bills.length, bills });
   } catch (err) {
     console.error('Error fetching bills:', err);
@@ -61,6 +148,63 @@ router.get('/:id', async (req, res) => {
     res.json({ success: true, bill });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to retrieve bill.' });
+  }
+});
+
+// PUT /api/bills/:id (Update existing saved bill)
+router.put('/:id', async (req, res) => {
+  try {
+    const updateData = req.body;
+    const balance = parseFloat(updateData.balanceDue) || 0;
+    if (updateData.balanceDue !== undefined) {
+      updateData.paymentStatus = balance <= 0 ? 'PAID' : 'DUE';
+    }
+
+    const updated = await db.updateBill(req.params.id, updateData);
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Bill not found.' });
+    }
+
+    // Keep room assigned & release any vacated room(s)
+    if (updated.roomNumber && updated.hotelId) {
+      await db.assignRoom(
+        updated.hotelId, 
+        updated.roomNumber, 
+        updated.customerName, 
+        updated.id || updated._id || req.params.id, 
+        updated.invoiceNo,
+        updated.checkInDateTime,
+        updated.checkOutDateTime
+      );
+    }
+
+    res.json({
+      success: true,
+      message: `Invoice ${updated.invoiceNo} updated successfully.`,
+      bill: updated
+    });
+  } catch (err) {
+    console.error('Error updating bill:', err);
+    res.status(500).json({ success: false, message: 'Failed to update bill.' });
+  }
+});
+
+// POST /api/bills/:id/checkout (Checkout & finalize bill -> 30-min housekeeping cycle)
+router.post('/:id/checkout', async (req, res) => {
+  try {
+    const closed = await db.checkoutBill(req.params.id);
+    if (!closed) {
+      return res.status(404).json({ success: false, message: 'Bill not found.' });
+    }
+
+    res.json({
+      success: true,
+      message: `Guest checked out! Invoice ${closed.invoiceNo} closed. Room ${closed.roomNumber} entered 30-min housekeeping.`,
+      bill: closed
+    });
+  } catch (err) {
+    console.error('Error checking out bill:', err);
+    res.status(500).json({ success: false, message: 'Failed to checkout bill.' });
   }
 });
 

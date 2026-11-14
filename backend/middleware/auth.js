@@ -29,3 +29,4 @@ function verifyAdmin(req, res, next) {
 }
 
 module.exports = { verifyToken, verifyAdmin, JWT_SECRET };
+

@@ -1,12 +1,14 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 const express = require('express');
 const cors = require('cors');
-const path = require('path');
 const morgan = require('morgan');
+const fs = require('fs');
 const { connectDB } = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const isProduction = process.env.NODE_ENV === 'production';
 
 // Middleware
 app.use(cors());
@@ -22,6 +24,9 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/hotels', require('./routes/hotels'));
 app.use('/api/bills', require('./routes/bills'));
 app.use('/api/analytics', require('./routes/analytics'));
+app.use('/api/rooms', require('./routes/rooms'));
+app.use('/api/advance-bookings', require('./routes/advanceBookings'));
+app.use('/api/activity', require('./routes/activity'));
 
 // Root API Health Check
 app.get('/api/health', (req, res) => {
@@ -33,19 +38,47 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Serve frontend in production if built
-const frontendDist = path.join(__dirname, '../frontend/dist');
-const fs = require('fs');
-if (fs.existsSync(frontendDist)) {
-  app.use(express.static(frontendDist));
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(frontendDist, 'index.html'));
-  });
-}
-
 // Start Server
 async function startServer() {
   await connectDB();
+
+  const frontendRoot = path.join(__dirname, '../frontend');
+  const frontendDist = path.join(frontendRoot, 'dist');
+
+  // If in development and Vite is installed, attach Vite HMR live dev middleware
+  // This enables INSTANT real-time updates on http://localhost:5000 on file save!
+  let viteAttached = false;
+  if (!isProduction) {
+    try {
+      const vitePath = path.join(frontendRoot, 'node_modules/vite/dist/node/index.js');
+      if (fs.existsSync(vitePath)) {
+        // Node ESM import on Windows
+        const viteUrl = new URL(`file:///${vitePath.replace(/\\/g, '/')}`).href;
+        const { createServer: createViteServer } = await import(viteUrl);
+        const vite = await createViteServer({
+          configFile: path.join(frontendRoot, 'vite.config.js'),
+          server: { middlewareMode: true },
+          appType: 'spa',
+          root: frontendRoot
+        });
+        app.use(vite.middlewares);
+        viteAttached = true;
+        console.log(`⚡ Vite HMR Live-Reload active on http://localhost:${PORT}`);
+        console.log(`⚡ Any changes in frontend/src/ will update instantly on save!`);
+      }
+    } catch (err) {
+      console.warn(`[Vite Dev Middleware] Could not attach Vite dev server:`, err.message);
+    }
+  }
+
+  // Fallback to static dist if Vite middleware wasn't attached
+  if (!viteAttached && fs.existsSync(frontendDist)) {
+    app.use(express.static(frontendDist));
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(frontendDist, 'index.html'));
+    });
+  }
+
   app.listen(PORT, () => {
     console.log(`=======================================================`);
     console.log(`🏨 Hotel Multi-Property Billing API running on port ${PORT}`);

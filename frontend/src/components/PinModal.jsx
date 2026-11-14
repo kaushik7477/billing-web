@@ -170,3 +170,4 @@ export default function PinModal({ hotel, isOpen, onClose, onLoginSuccess }) {
     </div>
   );
 }
+

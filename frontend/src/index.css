@@ -22,37 +22,163 @@ body {
 @media print {
   @page {
     size: A4 portrait;
-    margin: 6mm 8mm;
+    margin: 8mm 10mm;
   }
 
-  body {
+  html, body {
     background-color: #ffffff !important;
+    background: #ffffff !important;
     color: #000000 !important;
     margin: 0 !important;
     padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
   }
 
-  /* Hide navigation, forms, buttons, modals, toasts during printing */
-  .no-print {
+  /* Reset all modal backdrops so they never offset or clip the invoice card */
+  .fixed, [class*="fixed"] {
+    position: static !important;
+    inset: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    display: block !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  /* Hide all website navigation, top bars, forms, buttons, and anything with .no-print */
+  .no-print,
+  #app-header,
+  #input-form-container,
+  #floating-actions,
+  #mobile-nav-tabs,
+  .toast-notification,
+  nav,
+  aside,
+  header.no-print {
     display: none !important;
   }
 
-  /* Expand print invoice container */
-  #invoice-card {
+  /* Force display of invoice card and its parent containers */
+  #invoice-wrapper {
     width: 100% !important;
-    max-width: 100% !important;
+    max-width: 190mm !important;
     margin: 0 auto !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
+
+  #invoice-card {
+    display: block !important;
+    visibility: visible !important;
+    width: 190mm !important;
+    max-width: 190mm !important;
+    margin: 0 auto !important;
+    padding: 18px 24px !important;
+    box-sizing: border-box !important;
     box-shadow: none !important;
     border: 2px solid #1a365d !important;
+    border-radius: 8px !important;
     page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+  }
+
+  /* Force display of official police station compliance report */
+  #police-report-print {
+    display: block !important;
+    visibility: visible !important;
+    width: 100% !important;
+    max-width: 190mm !important;
+    margin: 0 auto !important;
+    padding: 16px 20px !important;
+    box-sizing: border-box !important;
+    box-shadow: none !important;
+    border: 2px solid #0f172a !important;
+    border-radius: 6px !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Ensure invoice header, text, headings, banners, tables, and borders are always 100% visible */
+  #invoice-card *,
+  #police-report-print * {
+    visibility: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  #invoice-card .invoice-header,
+  #invoice-card header {
+    display: block !important;
+    visibility: visible !important;
   }
 
   .print-exact {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
+
+  /* ID Privacy in Print: Hide full ID, show masked (XXXX) ID */
+  #invoice-card .id-full-display {
+    display: none !important;
+    visibility: hidden !important;
+    width: 0 !important;
+    height: 0 !important;
+    font-size: 0 !important;
+  }
+  #invoice-card .id-masked-display {
+    display: inline !important;
+    visibility: visible !important;
+  }
+
+  /* Hide custom scrollbars during print */
+  ::-webkit-scrollbar {
+    display: none !important;
+  }
+}
+
+/* ========================================================= */
+/* ID PROOF PRIVACY STYLES (SCREEN VS PRINT / PDF DOWNLOAD)  */
+/* ========================================================= */
+/* Default on Screen: Full ID is visible to Receptionist / Manager / SuperAdmin */
+.id-full-display {
+  display: inline;
+}
+.id-masked-display {
+  display: none;
+}
+
+/* PDF Download Export Mode (via html2pdf): Hide full ID, show masked ID, and maintain true A4 width */
+.mask-id-for-export .id-full-display {
+  display: none !important;
+  visibility: hidden !important;
+  width: 0 !important;
+  height: 0 !important;
+  font-size: 0 !important;
+}
+.mask-id-for-export .id-masked-display {
+  display: inline !important;
+  visibility: visible !important;
+}
+.mask-id-for-export#invoice-card,
+.mask-id-for-export #invoice-card {
+  width: 690px !important;
+  max-width: 690px !important;
+  padding: 20px 22px !important;
+  box-sizing: border-box !important;
+  box-shadow: none !important;
+  margin: 0 auto !important;
 }
 
 /* Watermark */
@@ -87,3 +213,4 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+

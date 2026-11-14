@@ -12,9 +12,12 @@ const HotelSchema = new mongoose.Schema({
   address: { type: String, required: true },
   phone: { type: String, required: true },
   gstin: { type: String, required: true },
-  managerPin: { type: String, required: true }, // 4-digit PIN e.g. "1111"
+  managerPin: { type: String, default: '1111' }, // Legacy 4-digit PIN
+  managerUsername: { type: String, required: true, index: true }, // User ID e.g. "hotel1"
+  managerPassword: { type: String, required: true }, // Password e.g. "hotel1234"
   themeColor: { type: String, default: '#1a365d' },
   tagline: { type: String, default: 'Luxury & Comfort in Digha' },
+  gstPercentage: { type: Number, default: 5 },
   roomTypes: [RoomTypeSchema],
   signatureImage: { type: String, default: 'manager-sign.png' },
   isActive: { type: Boolean, default: true },
@@ -23,3 +26,4 @@ const HotelSchema = new mongoose.Schema({
 });
 
 module.exports = mongoose.models.Hotel || mongoose.model('Hotel', HotelSchema);
+

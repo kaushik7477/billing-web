@@ -1,43 +1,58 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { formatINR } from '../utils/numberToWords';
 import { 
-  ShieldCheck, Building2, KeyRound, Download, Calendar, 
-  Filter, Search, LogOut, CheckCircle2, TrendingUp, DollarSign, 
-  CreditCard, Eye, Trash2, ArrowUpDown, RefreshCw, X, Edit3
+  Menu, X, Download, RefreshCw, LogOut, ShieldCheck, 
+  Printer, ArrowLeft, Sparkles, Building2
 } from 'lucide-react';
-import InvoicePreview from './InvoicePreview';
 
-export default function SuperAdminDashboard({ token, onLogout }) {
-  // State
+import InvoicePreview from './InvoicePreview';
+import { downloadInvoicePdf, printInvoicePdf } from '../utils/pdfExport';
+
+// Modular Super Admin Subcomponents
+import SuperAdminSidebar from './superadmin/SuperAdminSidebar';
+import DashboardLauncher from './superadmin/DashboardLauncher';
+import RoomMatrixView from './superadmin/RoomMatrixView';
+import InHouseGuestsView from './superadmin/InHouseGuestsView';
+import CashAuditView from './superadmin/CashAuditView';
+import RevenueAnalyticsView from './superadmin/RevenueAnalyticsView';
+import AdvanceBookingsView from './superadmin/AdvanceBookingsView';
+import MaintenanceAlertsView from './superadmin/MaintenanceAlertsView';
+import ManagerAccessView from './superadmin/ManagerAccessView';
+import RoomsTariffConfigView from './superadmin/RoomsTariffConfigView';
+import InvoicesArchiveView from './superadmin/InvoicesArchiveView';
+
+export default function SuperAdminDashboard({ token, onLogout, onNavigateManager }) {
+  // Navigation State
+  const [activeNav, setActiveNav] = useState('dashboard');
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
+
+  // Data States
   const [hotels, setHotels] = useState([]);
+  const [activityOverview, setActivityOverview] = useState({});
+  const [rooms, setRooms] = useState([]);
+  const [advanceBookings, setAdvanceBookings] = useState([]);
+  const [maintenanceIssues, setMaintenanceIssues] = useState([]);
   const [summary, setSummary] = useState(null);
   const [dayByDayData, setDayByDayData] = useState([]);
   const [weeklyData, setWeeklyData] = useState([]);
   const [monthlyData, setMonthlyData] = useState([]);
   const [allBills, setAllBills] = useState([]);
-  
-  // Filters
+
+  // Filter States
   const [hotelFilter, setHotelFilter] = useState('all');
-  const [activeTab, setActiveTab] = useState('dayByDay'); // 'dayByDay', 'weekly', 'monthly', 'invoices'
-  const [datePreset, setDatePreset] = useState('all'); // 'today', 'week', 'month', 'custom', 'all'
+  const [datePreset, setDatePreset] = useState('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [paymentModeFilter, setPaymentModeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [searchTerm, setSearchTerm] = useState('');
 
-  // PIN Editing State
-  const [editingPinHotel, setEditingPinHotel] = useState(null);
-  const [newPinValue, setNewPinValue] = useState('');
-  const [pinChangeMsg, setPinChangeMsg] = useState('');
-  const [isUpdatingPin, setIsUpdatingPin] = useState(false);
-
-  // Bill Inspection Modal
-  const [selectedBillForPreview, setSelectedBillForPreview] = useState(null);
+  // UI States
   const [isLoading, setIsLoading] = useState(false);
+  const [showPasswordMap, setShowPasswordMap] = useState({});
+  const [selectedBillForPreview, setSelectedBillForPreview] = useState(null);
 
-  // Fetch Admin Hotels List (includes current PINs)
-  const fetchAdminHotels = async () => {
+  // 1. Fetch Hotels List
+  const fetchAdminHotels = useCallback(async () => {
     try {
       const res = await fetch('/api/hotels/admin-list', {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -49,10 +64,62 @@ export default function SuperAdminDashboard({ token, onLogout }) {
     } catch (err) {
       console.error('Failed to fetch admin hotels:', err);
     }
-  };
+  }, [token]);
 
-  // Fetch Financial Analytics & Bills
-  const fetchAnalytics = async () => {
+  // 2. Fetch Live Activity Overview across 3 Hotels
+  const fetchActivityOverview = useCallback(async () => {
+    try {
+      const res = await fetch('/api/activity/overview');
+      const data = await res.json();
+      if (data.success && data.overview) {
+        setActivityOverview(data.overview);
+      }
+    } catch (err) {
+      console.error('Failed to fetch activity overview:', err);
+    }
+  }, []);
+
+  // 3. Fetch Rooms Inventory (all hotels)
+  const fetchRooms = useCallback(async () => {
+    try {
+      const res = await fetch('/api/rooms?hotelId=all');
+      const data = await res.json();
+      if (data.success && data.rooms) {
+        setRooms(data.rooms);
+      }
+    } catch (err) {
+      console.error('Failed to fetch rooms inventory:', err);
+    }
+  }, []);
+
+  // 4. Fetch Advance Bookings (all hotels)
+  const fetchAdvanceBookings = useCallback(async () => {
+    try {
+      const res = await fetch('/api/advance-bookings?hotelId=all');
+      const data = await res.json();
+      if (data.success && data.bookings) {
+        setAdvanceBookings(data.bookings);
+      }
+    } catch (err) {
+      console.error('Failed to fetch advance bookings:', err);
+    }
+  }, []);
+
+  // 5. Fetch Active Maintenance Issues
+  const fetchMaintenanceIssues = useCallback(async () => {
+    try {
+      const res = await fetch('/api/rooms/all-issues');
+      const data = await res.json();
+      if (data.success && data.issues) {
+        setMaintenanceIssues(data.issues);
+      }
+    } catch (err) {
+      console.error('Failed to fetch maintenance issues:', err);
+    }
+  }, []);
+
+  // 6. Fetch Financial Analytics & Bills
+  const fetchAnalytics = useCallback(async () => {
     setIsLoading(true);
     try {
       const queryParams = new URLSearchParams();
@@ -60,10 +127,9 @@ export default function SuperAdminDashboard({ token, onLogout }) {
       if (paymentModeFilter !== 'all') queryParams.append('paymentMode', paymentModeFilter);
       if (statusFilter !== 'all') queryParams.append('paymentStatus', statusFilter);
 
-      // Handle Date Presets
       const now = new Date();
       if (datePreset === 'today') {
-        const todayStr = now.toISOString().split('T')[0];
+        const todayStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
         queryParams.append('startDate', todayStr);
         queryParams.append('endDate', todayStr);
       } else if (datePreset === 'week') {
@@ -79,7 +145,6 @@ export default function SuperAdminDashboard({ token, onLogout }) {
 
       const queryString = queryParams.toString();
 
-      // Parallel Fetch
       const [sumRes, dayRes, weekRes, monthRes, billsRes] = await Promise.all([
         fetch(`/api/analytics/summary?${queryString}`, { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch(`/api/analytics/day-by-day?${queryString}`, { headers: { 'Authorization': `Bearer ${token}` } }),
@@ -107,52 +172,40 @@ export default function SuperAdminDashboard({ token, onLogout }) {
     } finally {
       setIsLoading(false);
     }
+  }, [token, hotelFilter, paymentModeFilter, statusFilter, datePreset, startDate, endDate]);
+
+  // Combined Refresh
+  const handleRefreshAll = () => {
+    fetchAdminHotels();
+    fetchActivityOverview();
+    fetchRooms();
+    fetchAdvanceBookings();
+    fetchMaintenanceIssues();
+    fetchAnalytics();
   };
 
+  // Initial Data Load
   useEffect(() => {
     fetchAdminHotels();
-  }, []);
+    fetchActivityOverview();
+    fetchRooms();
+    fetchAdvanceBookings();
+    fetchMaintenanceIssues();
+  }, [fetchAdminHotels, fetchActivityOverview, fetchRooms, fetchAdvanceBookings, fetchMaintenanceIssues]);
 
   useEffect(() => {
     fetchAnalytics();
-  }, [hotelFilter, datePreset, startDate, endDate, paymentModeFilter, statusFilter]);
+  }, [fetchAnalytics]);
 
-  // Handle PIN Change
-  const handleSavePin = async (hotelId) => {
-    if (!newPinValue || newPinValue.length < 4) {
-      alert('PIN must be at least 4 digits.');
-      return;
-    }
-
-    setIsUpdatingPin(true);
-    try {
-      const res = await fetch(`/api/hotels/${hotelId}/pin`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ newPin: newPinValue })
-      });
-
-      const data = await res.json();
-      if (data.success) {
-        setPinChangeMsg(data.message);
-        setEditingPinHotel(null);
-        setNewPinValue('');
-        fetchAdminHotels();
-        setTimeout(() => setPinChangeMsg(''), 4000);
-      } else {
-        alert(data.message || 'Failed to update PIN.');
-      }
-    } catch (err) {
-      alert('Network error updating PIN.');
-    } finally {
-      setIsUpdatingPin(false);
-    }
+  // Toggle Password Display for specific hotel
+  const togglePasswordVisibility = (hotelId) => {
+    setShowPasswordMap(prev => ({
+      ...prev,
+      [hotelId]: !prev[hotelId]
+    }));
   };
 
-  // Export CSV
+  // CSV Export
   const handleExportCSV = () => {
     const queryParams = new URLSearchParams();
     if (hotelFilter !== 'all') queryParams.append('hotelId', hotelFilter);
@@ -164,7 +217,7 @@ export default function SuperAdminDashboard({ token, onLogout }) {
     window.open(`/api/analytics/export-csv?${queryParams.toString()}`, '_blank');
   };
 
-  // Delete Bill
+  // Delete Invoice
   const handleDeleteBill = async (billId) => {
     if (!window.confirm('Are you sure you want to delete this invoice record permanently?')) return;
     try {
@@ -176,592 +229,267 @@ export default function SuperAdminDashboard({ token, onLogout }) {
       if (data.success) {
         fetchAnalytics();
       } else {
-        alert(data.message);
+        alert(data.message || 'Failed to delete bill.');
       }
     } catch (err) {
       alert('Error deleting bill.');
     }
   };
 
-  // Filtered bills by search term
-  const filteredBills = allBills.filter(b => {
-    if (!searchTerm) return true;
-    const term = searchTerm.toLowerCase();
-    return (
-      b.customerName?.toLowerCase().includes(term) ||
-      b.invoiceNo?.toLowerCase().includes(term) ||
-      b.customerPhone?.includes(term) ||
-      b.roomNumber?.toLowerCase().includes(term) ||
-      b.hotelName?.toLowerCase().includes(term)
-    );
-  });
+  // Mark Maintenance Issue Fixed
+  const handleResolveIssue = async (issue) => {
+    try {
+      const res = await fetch(`/api/rooms/${issue.roomNumber}/issues/fix`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          hotelId: issue.hotelId,
+          issueId: issue.id || issue._id
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchMaintenanceIssues();
+        fetchRooms();
+        return true;
+      } else {
+        alert(data.message || 'Failed to resolve issue.');
+        return false;
+      }
+    } catch (err) {
+      alert('Network error resolving issue.');
+      return false;
+    }
+  };
+
+  // Active in-house guests count
+  const inHouseCount = allBills.filter(b => b.billStatus === 'SAVED').length;
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col justify-between">
+    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col lg:flex-row font-sans">
       
-      {/* Top Admin Header */}
-      <header className="bg-slate-950 border-b border-slate-800 sticky top-0 z-40 shadow-xl">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 text-slate-950 flex items-center justify-center font-bold text-xl shadow-lg shadow-amber-500/20">
-              <ShieldCheck className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-base sm:text-lg font-bold text-white font-serif tracking-wide">
-                  Super Admin HQ Portal
-                </h1>
-                <span className="text-[10px] font-bold text-amber-300 bg-amber-500/20 border border-amber-400/30 px-2 py-0.5 rounded-full">
-                  Central Financial Analytics
-                </span>
-              </div>
-              <p className="text-xs text-slate-400">
-                Multi-Hotel Revenue Audit & Security Control
-              </p>
+      {/* 1. LEFT SIDEBAR NAVIGATION (DESKTOP & MOBILE DRAWER) */}
+      <SuperAdminSidebar
+        activeNav={activeNav}
+        setActiveNav={setActiveNav}
+        isMobileOpen={isMobileOpen}
+        setIsMobileOpen={setIsMobileOpen}
+        onLogout={onLogout}
+        onNavigateManager={onNavigateManager}
+        onExportCSV={handleExportCSV}
+        onRefresh={handleRefreshAll}
+        isLoading={isLoading}
+        issuesCount={maintenanceIssues.length}
+        inHouseCount={inHouseCount}
+      />
+
+      {/* 2. MAIN WORKSPACE CONTAINER */}
+      <div className={`flex-1 flex flex-col lg:pl-64 min-w-0 ${selectedBillForPreview ? 'no-print print:hidden' : ''}`}>
+        
+        {/* Mobile Header Bar */}
+        <header className="lg:hidden bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between sticky top-0 z-30 shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => setIsMobileOpen(true)}
+              className="p-2 text-slate-700 hover:text-slate-900 bg-slate-100 border border-slate-200 rounded-xl cursor-pointer"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-blue-600" />
+              <span className="font-mono font-black text-sm tracking-wider text-slate-900">
+                Admin PANEL
+              </span>
             </div>
           </div>
 
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center gap-2">
             <button
-              onClick={handleExportCSV}
-              className="px-3 py-1.5 text-xs font-bold text-slate-900 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 rounded-lg shadow-md transition flex items-center gap-1.5"
+              onClick={handleRefreshAll}
+              className="p-2 text-slate-700 hover:text-slate-900 bg-slate-100 border border-slate-200 rounded-xl cursor-pointer"
+              title="Refresh"
             >
-              <Download className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Export Excel / CSV</span>
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-blue-600' : ''}`} />
             </button>
-
-            <button
-              onClick={fetchAnalytics}
-              className="p-2 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition"
-              title="Refresh Stats"
-            >
-              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-            </button>
-
             <button
               onClick={onLogout}
-              className="px-3 py-1.5 text-xs font-semibold text-rose-300 hover:text-white bg-rose-500/10 hover:bg-rose-600/40 border border-rose-500/30 rounded-lg transition flex items-center gap-1.5"
+              className="p-2 text-rose-600 hover:text-rose-700 bg-rose-50 border border-rose-200 rounded-xl cursor-pointer"
+              title="Logout"
             >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Logout</span>
+              <LogOut className="w-4 h-4" />
             </button>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* Success Notification Bar */}
-      {pinChangeMsg && (
-        <div className="bg-emerald-600 text-white text-xs font-bold py-2.5 px-4 text-center flex items-center justify-center gap-2">
-          <CheckCircle2 className="w-4 h-4" />
-          <span>{pinChangeMsg}</span>
-        </div>
-      )}
-
-      {/* Main Workspace */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full flex-1 space-y-6">
-
-        {/* ======================================================== */}
-        {/* SECTION 1: HOTEL MANAGER LOGIN PIN MANAGEMENT             */}
-        {/* (Directly fulfilling user requirement)                   */}
-        {/* ======================================================== */}
-        <section className="bg-slate-800/90 rounded-2xl p-5 border border-slate-700 shadow-xl">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-4 border-b border-slate-700/80 mb-4 gap-2">
-            <div>
-              <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                <KeyRound className="w-4 h-4 text-amber-400" />
-                <span>Hotel Manager Login PIN Configuration</span>
-              </h2>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Every hotel has a distinct PIN. Managers use these to log into their billing dashboards.
-              </p>
-            </div>
-            <span className="text-xs text-amber-400/90 font-mono bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20 self-start sm:self-auto">
-              3 Hotel Properties Configured
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {hotels.map((hotel, index) => {
-              const isEditing = editingPinHotel === hotel.hotelId;
-              const isBlue = index === 0;
-              const isGreen = index === 1;
-              const borderCol = isBlue ? 'border-blue-500/40' : isGreen ? 'border-emerald-500/40' : 'border-indigo-500/40';
-
-              return (
-                <div
-                  key={hotel.hotelId}
-                  className={`bg-slate-900/90 rounded-xl p-4 border ${borderCol} flex flex-col justify-between`}
-                >
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                        Box {index + 1}
-                      </span>
-                      <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                        Operational
-                      </span>
-                    </div>
-
-                    <h3 className="text-base font-bold text-white font-serif">{hotel.name}</h3>
-                    <p className="text-xs text-amber-300 italic">{hotel.subText}</p>
-                    <p className="text-[11px] text-slate-400 mt-1 line-clamp-1">{hotel.address}</p>
-
-                    {/* Current PIN Display */}
-                    <div className="mt-4 p-3 bg-slate-950 rounded-lg border border-slate-800 flex items-center justify-between">
-                      <span className="text-xs text-slate-400 font-medium">Manager PIN:</span>
-                      <span className="font-mono text-base font-extrabold text-amber-400 tracking-widest">
-                        {hotel.managerPin}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* PIN Edit Controls */}
-                  <div className="mt-4 pt-3 border-t border-slate-800">
-                    {isEditing ? (
-                      <div className="space-y-2 animate-fade-in">
-                        <label className="text-[11px] font-semibold text-slate-300">Set New 4-Digit PIN:</label>
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            maxLength={6}
-                            value={newPinValue}
-                            onChange={(e) => setNewPinValue(e.target.value.replace(/\D/g, ''))}
-                            placeholder="e.g. 5555"
-                            className="w-full px-3 py-1.5 text-xs font-mono font-bold bg-slate-800 border border-amber-500/60 rounded-lg text-amber-300 focus:outline-none"
-                            autoFocus
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleSavePin(hotel.hotelId)}
-                            disabled={isUpdatingPin || newPinValue.length < 4}
-                            className="px-3 py-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition disabled:opacity-50"
-                          >
-                            Save
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => { setEditingPinHotel(null); setNewPinValue(''); }}
-                            className="px-2 py-1.5 text-xs text-slate-400 hover:text-white bg-slate-800 rounded-lg"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingPinHotel(hotel.hotelId);
-                          setNewPinValue(hotel.managerPin || '');
-                        }}
-                        className="w-full py-2 px-3 text-xs font-semibold text-slate-200 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg transition flex items-center justify-center gap-1.5"
-                      >
-                        <Edit3 className="w-3.5 h-3.5 text-amber-400" />
-                        <span>Change Manager PIN</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* ======================================================== */}
-        {/* SECTION 2: TOP KPI METRICS ROW                           */}
-        {/* ======================================================== */}
-        {summary && (
-          <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-4">
-            <div className="bg-slate-800/90 border border-slate-700/80 rounded-xl p-4 shadow-lg">
-              <span className="text-[11px] font-semibold text-slate-400 block mb-1">Gross Revenue</span>
-              <span className="text-xl sm:text-2xl font-extrabold text-amber-400 font-mono">
-                ₹ {formatINR(summary.totalRevenue)}
-              </span>
-            </div>
-
-            <div className="bg-slate-800/90 border border-slate-700/80 rounded-xl p-4 shadow-lg">
-              <span className="text-[11px] font-semibold text-slate-400 block mb-1">Advance Received</span>
-              <span className="text-xl sm:text-2xl font-extrabold text-emerald-400 font-mono">
-                ₹ {formatINR(summary.totalAdvance)}
-              </span>
-            </div>
-
-            <div className="bg-slate-800/90 border border-slate-700/80 rounded-xl p-4 shadow-lg">
-              <span className="text-[11px] font-semibold text-slate-400 block mb-1">Balance Due</span>
-              <span className="text-xl sm:text-2xl font-extrabold text-rose-400 font-mono">
-                ₹ {formatINR(summary.totalBalanceDue)}
-              </span>
-            </div>
-
-            <div className="bg-slate-800/90 border border-slate-700/80 rounded-xl p-4 shadow-lg">
-              <span className="text-[11px] font-semibold text-slate-400 block mb-1">Total GST (5%)</span>
-              <span className="text-xl sm:text-2xl font-extrabold text-blue-400 font-mono">
-                ₹ {formatINR(summary.totalGst)}
-              </span>
-            </div>
-
-            <div className="bg-slate-800/90 border border-slate-700/80 rounded-xl p-4 shadow-lg">
-              <span className="text-[11px] font-semibold text-slate-400 block mb-1">Total Invoices</span>
-              <span className="text-xl sm:text-2xl font-extrabold text-purple-400 font-mono">
-                {summary.totalBills}
-              </span>
-            </div>
-
-            <div className="bg-slate-800/90 border border-slate-700/80 rounded-xl p-4 shadow-lg">
-              <span className="text-[11px] font-semibold text-slate-400 block mb-1">Guests Hosted</span>
-              <span className="text-xl sm:text-2xl font-extrabold text-slate-200 font-mono">
-                {summary.totalGuests}
-              </span>
-            </div>
-          </div>
-        )}
-
-        {/* ======================================================== */}
-        {/* SECTION 3: FILTER CONTROLS & TIME PRESETS                */}
-        {/* ======================================================== */}
-        <section className="bg-slate-800/90 rounded-2xl p-4 border border-slate-700 shadow-xl space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            
-            {/* Property Selector */}
-            <div className="flex items-center gap-2">
-              <Building2 className="w-4 h-4 text-amber-400" />
-              <select
-                value={hotelFilter}
-                onChange={(e) => setHotelFilter(e.target.value)}
-                className="px-3 py-1.5 text-xs font-bold bg-slate-900 border border-slate-700 rounded-lg text-white focus:ring-1 focus:ring-amber-500"
-              >
-                <option value="all">🏢 All 3 Hotels (Consolidated)</option>
-                <option value="hotel-1">Hotel Rojana (Box 1)</option>
-                <option value="hotel-2">Hotel Sagar Priya (Box 2)</option>
-                <option value="hotel-3">Hotel Sea Pearl (Box 3)</option>
-              </select>
-            </div>
-
-            {/* Date Range Presets */}
-            <div className="flex items-center gap-1.5 bg-slate-900 p-1 rounded-lg border border-slate-700">
-              <button
-                onClick={() => setDatePreset('all')}
-                className={`px-2.5 py-1 text-xs font-semibold rounded-md transition ${datePreset === 'all' ? 'bg-amber-500 text-slate-900 font-bold' : 'text-slate-400 hover:text-white'}`}
-              >
-                All Time
-              </button>
-              <button
-                onClick={() => setDatePreset('today')}
-                className={`px-2.5 py-1 text-xs font-semibold rounded-md transition ${datePreset === 'today' ? 'bg-amber-500 text-slate-900 font-bold' : 'text-slate-400 hover:text-white'}`}
-              >
-                Today
-              </button>
-              <button
-                onClick={() => setDatePreset('week')}
-                className={`px-2.5 py-1 text-xs font-semibold rounded-md transition ${datePreset === 'week' ? 'bg-amber-500 text-slate-900 font-bold' : 'text-slate-400 hover:text-white'}`}
-              >
-                Last 7 Days
-              </button>
-              <button
-                onClick={() => setDatePreset('month')}
-                className={`px-2.5 py-1 text-xs font-semibold rounded-md transition ${datePreset === 'month' ? 'bg-amber-500 text-slate-900 font-bold' : 'text-slate-400 hover:text-white'}`}
-              >
-                This Month
-              </button>
-              <button
-                onClick={() => setDatePreset('custom')}
-                className={`px-2.5 py-1 text-xs font-semibold rounded-md transition ${datePreset === 'custom' ? 'bg-amber-500 text-slate-900 font-bold' : 'text-slate-400 hover:text-white'}`}
-              >
-                Custom Range
-              </button>
-            </div>
-
-            {/* Payment & Status Filters */}
-            <div className="flex items-center gap-2">
-              <select
-                value={paymentModeFilter}
-                onChange={(e) => setPaymentModeFilter(e.target.value)}
-                className="px-2.5 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-lg text-slate-300"
-              >
-                <option value="all">All Modes</option>
-                <option value="Cash">Cash</option>
-                <option value="UPI">UPI / QR</option>
-                <option value="Card">Card</option>
-              </select>
-
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-2.5 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-lg text-slate-300"
-              >
-                <option value="all">All Status</option>
-                <option value="PAID">Paid in Full</option>
-                <option value="DUE">Balance Due</option>
-              </select>
-            </div>
-
-          </div>
-
-          {/* Custom Date Pickers (if selected) */}
-          {datePreset === 'custom' && (
-            <div className="flex items-center gap-3 pt-2 border-t border-slate-700 text-xs">
-              <span className="text-slate-400">From:</span>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="px-2 py-1 bg-slate-900 border border-slate-700 rounded text-white"
-              />
-              <span className="text-slate-400">To:</span>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="px-2 py-1 bg-slate-900 border border-slate-700 rounded text-white"
-              />
-            </div>
-          )}
-        </section>
-
-        {/* ======================================================== */}
-        {/* SECTION 4: FINANCIAL REPORTS (DAY BY DAY, WEEKLY, MONTHLY)*/}
-        {/* ======================================================== */}
-        <section className="bg-slate-800/90 rounded-2xl border border-slate-700 shadow-xl overflow-hidden">
+        {/* Content Body */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
           
-          {/* View Switcher Tabs */}
-          <div className="flex items-center justify-between px-6 py-3 border-b border-slate-700 bg-slate-950/50">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setActiveTab('dayByDay')}
-                className={`py-1.5 px-3 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                  activeTab === 'dayByDay' ? 'bg-amber-500 text-slate-950 shadow-md' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                <Calendar className="w-3.5 h-3.5" />
-                <span>Day-by-Day Financials</span>
-              </button>
+          {/* WINDOW 1: DASHBOARD APP LAUNCHER */}
+          {activeNav === 'dashboard' && (
+            <DashboardLauncher
+              hotels={hotels}
+              activityOverview={activityOverview}
+              summary={summary}
+              showPasswordMap={showPasswordMap}
+              togglePasswordVisibility={togglePasswordVisibility}
+              onOpenNav={setActiveNav}
+              issuesCount={maintenanceIssues.length}
+              inHouseCount={inHouseCount}
+            />
+          )}
 
-              <button
-                onClick={() => setActiveTab('weekly')}
-                className={`py-1.5 px-3 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                  activeTab === 'weekly' ? 'bg-amber-500 text-slate-950 shadow-md' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                <TrendingUp className="w-3.5 h-3.5" />
-                <span>Weekly Summary</span>
-              </button>
+          {/* WINDOW 2: LIVE ROOM MATRIX */}
+          {activeNav === 'rooms' && (
+            <RoomMatrixView
+              rooms={rooms}
+              hotels={hotels}
+              allBills={allBills}
+              onSelectBill={setSelectedBillForPreview}
+              isLoading={isLoading}
+              onRefresh={fetchRooms}
+              onBackToDashboard={() => setActiveNav('dashboard')}
+            />
+          )}
 
-              <button
-                onClick={() => setActiveTab('monthly')}
-                className={`py-1.5 px-3 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                  activeTab === 'monthly' ? 'bg-amber-500 text-slate-950 shadow-md' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                <DollarSign className="w-3.5 h-3.5" />
-                <span>Monthly Summary</span>
-              </button>
+          {/* WINDOW 3: IN-HOUSE GUESTS & PENDING DUES */}
+          {activeNav === 'guests' && (
+            <InHouseGuestsView
+              allBills={allBills}
+              onSelectBill={setSelectedBillForPreview}
+              onBackToDashboard={() => setActiveNav('dashboard')}
+            />
+          )}
 
+          {/* WINDOW 4: PAYMENT MODE & CASH AUDIT */}
+          {activeNav === 'cashAudit' && (
+            <CashAuditView
+              allBills={allBills}
+              summary={summary}
+              hotelFilter={hotelFilter}
+              setHotelFilter={setHotelFilter}
+              datePreset={datePreset}
+              setDatePreset={setDatePreset}
+              onBackToDashboard={() => setActiveNav('dashboard')}
+            />
+          )}
+
+          {/* WINDOW 5: VISUAL REVENUE ANALYTICS */}
+          {activeNav === 'analytics' && (
+            <RevenueAnalyticsView
+              hotels={hotels}
+              activityOverview={activityOverview}
+              summary={summary}
+              dayByDayData={dayByDayData}
+              weeklyData={weeklyData}
+              monthlyData={monthlyData}
+              hotelFilter={hotelFilter}
+              setHotelFilter={setHotelFilter}
+              datePreset={datePreset}
+              setDatePreset={setDatePreset}
+              startDate={startDate}
+              setStartDate={setStartDate}
+              endDate={endDate}
+              setEndDate={setEndDate}
+              onExportCSV={handleExportCSV}
+              onBackToDashboard={() => setActiveNav('dashboard')}
+            />
+          )}
+
+          {/* WINDOW 6: ADVANCE BOOKINGS */}
+          {activeNav === 'advance' && (
+            <AdvanceBookingsView
+              bookings={advanceBookings}
+              hotels={hotels}
+              isLoading={isLoading}
+              onRefresh={fetchAdvanceBookings}
+              onBackToDashboard={() => setActiveNav('dashboard')}
+            />
+          )}
+
+          {/* WINDOW 7: ROOM ISSUES & MAINTENANCE ALERTS */}
+          {activeNav === 'maintenance' && (
+            <MaintenanceAlertsView
+              issues={maintenanceIssues}
+              isLoading={isLoading}
+              onRefresh={fetchMaintenanceIssues}
+              onResolveIssue={handleResolveIssue}
+              onBackToDashboard={() => setActiveNav('dashboard')}
+            />
+          )}
+
+          {/* WINDOW 8: MANAGER ACCESS CONTROL */}
+          {activeNav === 'managers' && (
+            <ManagerAccessView
+              hotels={hotels}
+              token={token}
+              onHotelsUpdated={fetchAdminHotels}
+              onBackToDashboard={() => setActiveNav('dashboard')}
+            />
+          )}
+
+          {/* WINDOW 9: ROOM & TARIFF CONFIGURATION */}
+          {activeNav === 'tariffs' && (
+            <RoomsTariffConfigView
+              hotels={hotels}
+              rooms={rooms}
+              token={token}
+              onRefresh={fetchRooms}
+              onHotelsUpdated={fetchAdminHotels}
+              onBackToDashboard={() => setActiveNav('dashboard')}
+            />
+          )}
+
+          {/* WINDOW 10: INVOICES & MASTER BILLS ARCHIVE */}
+          {activeNav === 'invoices' && (
+            <InvoicesArchiveView
+              allBills={allBills}
+              hotelFilter={hotelFilter}
+              setHotelFilter={setHotelFilter}
+              datePreset={datePreset}
+              setDatePreset={setDatePreset}
+              startDate={startDate}
+              setStartDate={setStartDate}
+              endDate={endDate}
+              setEndDate={setEndDate}
+              paymentModeFilter={paymentModeFilter}
+              setPaymentModeFilter={setPaymentModeFilter}
+              statusFilter={statusFilter}
+              setStatusFilter={setStatusFilter}
+              onExportCSV={handleExportCSV}
+              onSelectBill={setSelectedBillForPreview}
+              onDeleteBill={handleDeleteBill}
+              onBackToDashboard={() => setActiveNav('dashboard')}
+            />
+          )}
+
+        </main>
+      </div>
+
+      {/* 3. BILL PREVIEW MODAL */}
+      {selectedBillForPreview && (
+        <div 
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedBillForPreview(null);
+          }}
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs overflow-y-auto p-3 sm:p-6 flex justify-center items-start print:static print:p-0 print:m-0 print:bg-white print:overflow-visible print:block"
+        >
+          <div className="relative max-w-3xl w-full my-4 sm:my-8 bg-white text-slate-900 rounded-2xl p-4 sm:p-6 shadow-2xl print:max-w-none print:w-full print:p-0 print:m-0 print:shadow-none print:border-none print:block">
+            {/* Modal Header Bar with Title and Close button */}
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100 no-print">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                <span className="font-bold text-sm text-slate-800 font-mono">
+                  Tax Invoice & Guest Bill Preview • {selectedBillForPreview.invoiceNo}
+                </span>
+              </div>
               <button
-                onClick={() => setActiveTab('invoices')}
-                className={`py-1.5 px-3 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                  activeTab === 'invoices' ? 'bg-amber-500 text-slate-950 shadow-md' : 'text-slate-400 hover:text-white'
-                }`}
+                onClick={() => setSelectedBillForPreview(null)}
+                className="text-slate-400 hover:text-slate-800 p-1.5 rounded-full hover:bg-slate-100 transition cursor-pointer"
+                title="Close (Esc)"
               >
-                <span>Individual Invoices ({filteredBills.length})</span>
+                <X className="w-5 h-5" />
               </button>
             </div>
-
-            {/* Search within table */}
-            {activeTab === 'invoices' && (
-              <div className="relative w-64">
-                <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search guest, invoice no..."
-                  className="w-full pl-8 pr-3 py-1 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white"
-                />
-              </div>
-            )}
-          </div>
-
-          {/* TABLE DISPLAY */}
-          <div className="overflow-x-auto">
-            
-            {/* 1. DAY-BY-DAY TABLE */}
-            {activeTab === 'dayByDay' && (
-              <table className="w-full text-xs text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-950 text-slate-400 font-semibold border-b border-slate-700">
-                    <th className="py-3 px-4">Date</th>
-                    <th className="py-3 px-3 text-center">Bills Count</th>
-                    <th className="py-3 px-3 text-right">Gross Revenue (₹)</th>
-                    <th className="py-3 px-3 text-right">Advance Received (₹)</th>
-                    <th className="py-3 px-3 text-right">Balance Due (₹)</th>
-                    <th className="py-3 px-3 text-right">GST (5%) (₹)</th>
-                    <th className="py-3 px-3 text-center">Guests</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-700/60 font-mono">
-                  {dayByDayData.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="py-8 text-center text-slate-500 font-sans">
-                        No financial records found for this filter criteria.
-                      </td>
-                    </tr>
-                  ) : (
-                    dayByDayData.map((row) => (
-                      <tr key={row.dateKey} className="hover:bg-slate-700/30 transition">
-                        <td className="py-3 px-4 font-sans font-bold text-white flex items-center gap-2">
-                          <Calendar className="w-3.5 h-3.5 text-amber-400" />
-                          <span>{row.dateLabel}</span>
-                        </td>
-                        <td className="py-3 px-3 text-center text-purple-300 font-bold">{row.billsCount}</td>
-                        <td className="py-3 px-3 text-right text-amber-400 font-bold">{formatINR(row.revenue)}</td>
-                        <td className="py-3 px-3 text-right text-emerald-400">{formatINR(row.advance)}</td>
-                        <td className="py-3 px-3 text-right text-rose-400">{formatINR(row.balanceDue)}</td>
-                        <td className="py-3 px-3 text-right text-blue-300">{formatINR(row.gst)}</td>
-                        <td className="py-3 px-3 text-center font-sans text-slate-300">{row.guests}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            )}
-
-            {/* 2. WEEKLY TABLE */}
-            {activeTab === 'weekly' && (
-              <table className="w-full text-xs text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-950 text-slate-400 font-semibold border-b border-slate-700">
-                    <th className="py-3 px-4">Week Period</th>
-                    <th className="py-3 px-3 text-center">Bills</th>
-                    <th className="py-3 px-3 text-right">Gross Revenue (₹)</th>
-                    <th className="py-3 px-3 text-right">Advance Received (₹)</th>
-                    <th className="py-3 px-3 text-right">Balance Due (₹)</th>
-                    <th className="py-3 px-3 text-right">GST (5%) (₹)</th>
-                    <th className="py-3 px-3 text-center">Guests</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-700/60 font-mono">
-                  {weeklyData.map((row) => (
-                    <tr key={row.weekKey} className="hover:bg-slate-700/30 transition">
-                      <td className="py-3 px-4 font-sans font-bold text-white">{row.weekLabel}</td>
-                      <td className="py-3 px-3 text-center text-purple-300 font-bold">{row.billsCount}</td>
-                      <td className="py-3 px-3 text-right text-amber-400 font-bold">{formatINR(row.revenue)}</td>
-                      <td className="py-3 px-3 text-right text-emerald-400">{formatINR(row.advance)}</td>
-                      <td className="py-3 px-3 text-right text-rose-400">{formatINR(row.balanceDue)}</td>
-                      <td className="py-3 px-3 text-right text-blue-300">{formatINR(row.gst)}</td>
-                      <td className="py-3 px-3 text-center font-sans text-slate-300">{row.guests}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-
-            {/* 3. MONTHLY TABLE */}
-            {activeTab === 'monthly' && (
-              <table className="w-full text-xs text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-950 text-slate-400 font-semibold border-b border-slate-700">
-                    <th className="py-3 px-4">Month</th>
-                    <th className="py-3 px-3 text-center">Bills Count</th>
-                    <th className="py-3 px-3 text-right">Monthly Revenue (₹)</th>
-                    <th className="py-3 px-3 text-right">Advance (₹)</th>
-                    <th className="py-3 px-3 text-right">Balance Due (₹)</th>
-                    <th className="py-3 px-3 text-right">GST Collected (₹)</th>
-                    <th className="py-3 px-3 text-center">Guests</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-700/60 font-mono">
-                  {monthlyData.map((row) => (
-                    <tr key={row.monthKey} className="hover:bg-slate-700/30 transition">
-                      <td className="py-3 px-4 font-sans font-bold text-white text-sm">{row.monthLabel}</td>
-                      <td className="py-3 px-3 text-center text-purple-300 font-bold">{row.billsCount}</td>
-                      <td className="py-3 px-3 text-right text-amber-400 font-bold text-sm">{formatINR(row.revenue)}</td>
-                      <td className="py-3 px-3 text-right text-emerald-400">{formatINR(row.advance)}</td>
-                      <td className="py-3 px-3 text-right text-rose-400">{formatINR(row.balanceDue)}</td>
-                      <td className="py-3 px-3 text-right text-blue-300">{formatINR(row.gst)}</td>
-                      <td className="py-3 px-3 text-center font-sans text-slate-300">{row.guests}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-
-            {/* 4. INDIVIDUAL INVOICES TABLE */}
-            {activeTab === 'invoices' && (
-              <table className="w-full text-xs text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-950 text-slate-400 font-semibold border-b border-slate-700">
-                    <th className="py-3 px-3">Date</th>
-                    <th className="py-3 px-3">Invoice No</th>
-                    <th className="py-3 px-3">Hotel Property</th>
-                    <th className="py-3 px-3">Customer</th>
-                    <th className="py-3 px-2">Room</th>
-                    <th className="py-3 px-3 text-right">Net Total</th>
-                    <th className="py-3 px-3 text-right">Balance Due</th>
-                    <th className="py-3 px-2 text-center">Mode</th>
-                    <th className="py-3 px-2 text-center">Status</th>
-                    <th className="py-3 px-3 text-center">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-700/60">
-                  {filteredBills.map((b) => (
-                    <tr key={b.id || b._id} className="hover:bg-slate-700/30 transition">
-                      <td className="py-2.5 px-3 text-slate-300">{b.billDate}</td>
-                      <td className="py-2.5 px-3 font-mono font-bold text-amber-400">{b.invoiceNo}</td>
-                      <td className="py-2.5 px-3 font-semibold text-white">{b.hotelName}</td>
-                      <td className="py-2.5 px-3 font-medium text-slate-200">
-                        {b.customerName}
-                        <div className="text-[10px] text-slate-400 font-mono">{b.customerPhone}</div>
-                      </td>
-                      <td className="py-2.5 px-2 font-mono text-slate-300">{b.roomNumber}</td>
-                      <td className="py-2.5 px-3 text-right font-mono font-bold text-white">₹ {formatINR(b.netTotal)}</td>
-                      <td className="py-2.5 px-3 text-right font-mono font-bold text-rose-400">₹ {formatINR(b.balanceDue)}</td>
-                      <td className="py-2.5 px-2 text-center text-slate-400 text-[11px]">{b.paymentMode}</td>
-                      <td className="py-2.5 px-2 text-center">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          b.paymentStatus === 'PAID' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                        }`}>
-                          {b.paymentStatus}
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-3 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <button
-                            onClick={() => setSelectedBillForPreview(b)}
-                            className="p-1 text-slate-300 hover:text-amber-400 hover:bg-slate-800 rounded transition"
-                            title="Inspect Bill"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteBill(b.id || b._id)}
-                            className="p-1 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded transition"
-                            title="Delete Bill"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-
-          </div>
-        </section>
-
-      </main>
-
-      {/* Bill Preview Modal for Admin */}
-      {selectedBillForPreview && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="relative max-w-3xl w-full my-8 bg-white text-slate-900 rounded-2xl p-6 shadow-2xl">
-            <button
-              onClick={() => setSelectedBillForPreview(null)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-800 p-1.5 rounded-full hover:bg-slate-100 transition"
-            >
-              <X className="w-6 h-6" />
-            </button>
 
             <InvoicePreview
               hotel={{
@@ -787,6 +515,41 @@ export default function SuperAdminDashboard({ token, onLogout }) {
                 amountInWords: selectedBillForPreview.amountInWords
               }}
             />
+
+            <div className="flex justify-end gap-2 pt-4 mt-4 border-t border-slate-100 no-print">
+              <button
+                onClick={() => setSelectedBillForPreview(null)}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 cursor-pointer"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  const el = document.getElementById('invoice-card');
+                  const safeInv = String(selectedBillForPreview.invoiceNo || 'INV').replace(/[\/\\?%*:|"<>]/g, '-');
+                  const hotelName = (selectedBillForPreview.hotelName || (selectedBillForPreview.hotelId === 'hotel-1' ? 'Hotel Rojana' : selectedBillForPreview.hotelId === 'hotel-2' ? 'Hotel Sagar Priya' : 'Hotel Sea Pearl')).replace(/\s+/g, '-');
+                  const filename = `${hotelName}-Invoice-${safeInv}.pdf`;
+                  downloadInvoicePdf(el, filename);
+                }}
+                className="px-4 py-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition shadow-xs cursor-pointer flex items-center gap-1.5"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download PDF</span>
+              </button>
+              <button
+                onClick={() => {
+                  const el = document.getElementById('invoice-card');
+                  const safeInv = String(selectedBillForPreview.invoiceNo || 'INV').replace(/[\/\\?%*:|"<>]/g, '-');
+                  const hotelName = (selectedBillForPreview.hotelName || (selectedBillForPreview.hotelId === 'hotel-1' ? 'Hotel Rojana' : selectedBillForPreview.hotelId === 'hotel-2' ? 'Hotel Sagar Priya' : 'Hotel Sea Pearl')).replace(/\s+/g, '-');
+                  const filename = `${hotelName}-Invoice-${safeInv}.pdf`;
+                  printInvoicePdf(el, filename);
+                }}
+                className="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow cursor-pointer flex items-center gap-1.5"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Print Bill</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

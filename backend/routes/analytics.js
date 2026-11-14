@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { db } = require('../db');
+const { db, getISTDateStr } = require('../db');
 const { verifyAdmin } = require('../middleware/auth');
 
 // Helper to filter bills in memory
@@ -111,8 +111,8 @@ router.get('/day-by-day', verifyAdmin, async (req, res) => {
 
     bills.forEach(b => {
       const dt = new Date(b.billDateTime || b.createdAt);
-      const dateKey = dt.toISOString().split('T')[0]; // "YYYY-MM-DD"
-      const dateLabel = dt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+      const dateKey = getISTDateStr(dt); // Strict 12:00 AM IST date key
+      const dateLabel = dt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
 
       if (!dayMap[dateKey]) {
         dayMap[dateKey] = {
@@ -304,3 +304,4 @@ router.get('/export-csv', verifyAdmin, async (req, res) => {
 });
 
 module.exports = router;
+

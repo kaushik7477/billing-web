@@ -54,6 +54,48 @@ router.get('/:hotelId', async (req, res) => {
   }
 });
 
+// PUT /api/hotels/:hotelId/credentials (Super Admin - Update Manager User ID and Password)
+router.put('/:hotelId/credentials', verifyAdmin, async (req, res) => {
+  try {
+    const { hotelId } = req.params;
+    const { managerUsername, managerPassword } = req.body;
+
+    if (!managerUsername || String(managerUsername).trim().length < 3) {
+      return res.status(400).json({ success: false, message: 'Manager User ID must be at least 3 characters.' });
+    }
+
+    if (!managerPassword || String(managerPassword).trim().length < 4) {
+      return res.status(400).json({ success: false, message: 'Manager Password must be at least 4 characters.' });
+    }
+
+    const cleanUser = String(managerUsername).trim();
+    const cleanPass = String(managerPassword).trim();
+
+    // Check if another hotel already has this managerUsername
+    const existing = await db.getHotelByUsername(cleanUser);
+    if (existing && existing.hotelId !== hotelId) {
+      return res.status(400).json({
+        success: false,
+        message: `User ID "${cleanUser}" is already assigned to ${existing.name}. Please choose a unique User ID.`
+      });
+    }
+
+    const updatedHotel = await db.updateHotelCredentials(hotelId, cleanUser, cleanPass);
+    if (!updatedHotel) {
+      return res.status(404).json({ success: false, message: 'Hotel not found.' });
+    }
+
+    res.json({
+      success: true,
+      message: `Login credentials for ${updatedHotel.name} updated! (User ID: ${cleanUser})`,
+      hotel: updatedHotel
+    });
+  } catch (err) {
+    console.error('Error updating hotel credentials:', err);
+    res.status(500).json({ success: false, message: 'Failed to update manager credentials.' });
+  }
+});
+
 // PUT /api/hotels/:hotelId/pin (Super Admin - Update Manager Login PIN)
 router.put('/:hotelId/pin', verifyAdmin, async (req, res) => {
   try {
@@ -96,3 +138,4 @@ router.put('/:hotelId', verifyAdmin, async (req, res) => {
 });
 
 module.exports = router;
+

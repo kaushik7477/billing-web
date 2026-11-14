@@ -9,6 +9,8 @@ dist/
 
 # Environment files
 .env
+*.env
+backend/.env
 backend/.env.local
 
 # Logs
@@ -23,3 +25,10 @@ desktop.ini
 # Editor directories
 .vscode/
 .idea/
+
+# Backup files
+*.bak
+*.backup
+
+# Scratch / temp files
+scratch/

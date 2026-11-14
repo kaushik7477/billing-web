@@ -1,22 +1,25 @@
 import React from 'react';
 import { formatINR } from '../utils/numberToWords';
+import { maskIdNumber } from '../utils/idMasking';
 
 export default function InvoicePreview({ hotel, billData, calculations }) {
   if (!hotel) return null;
 
   const {
-    invoiceNo = 'HR-2026-0001',
+    invoiceNo = 'HR/26/00001',
     billDate = '10-Nov-2026',
-    customerName = 'Guest',
+    customerName = 'Rahul Banerjee',
     countryCode = '+91',
-    customerPhone = '',
+    customerPhone = '9830124567',
     idType = 'Aadhaar Card',
     idNumber = '',
     roomType = 'Deluxe Room',
-    roomNumber = '',
-    numPersons = 1,
+    roomNumber = '302',
+    numPersons = 2,
     checkInDateTime = '',
     checkOutDateTime = '',
+    checkInDate = '',
+    checkOutDate = '',
     numDays = 1,
     paymentMode = 'Cash',
     remarks = '',
@@ -34,12 +37,21 @@ export default function InvoicePreview({ hotel, billData, calculations }) {
     netTotal = 2310,
     advancePaid = 0,
     balanceDue = 2310,
-    amountInWords = 'Two Thousand Three Hundred Ten Rupees Only'
-  } = calculations;
+    amountInWords = 'Two Thousand Three Hundred Ten Rupees Only',
+    roomsList = []
+  } = calculations || {};
 
-  // Format datetime for receipt
-  const formatReceiptDate = (dtStr) => {
+  // Format date for receipt (e.g., "12-Nov-2026, 12:00 PM")
+  const formatReceiptDate = (dtStr, defaultType = 'in') => {
     if (!dtStr) return 'Not Specified';
+    // If pure date string (YYYY-MM-DD)
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dtStr)) {
+      const parts = dtStr.split('-');
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const mIdx = parseInt(parts[1], 10) - 1;
+      const defTime = defaultType === 'in' ? '12:00 PM' : '11:00 AM';
+      return `${parts[2]}-${months[mIdx]}-${parts[0]}, ${defTime}`;
+    }
     const d = new Date(dtStr);
     if (isNaN(d.getTime())) return dtStr;
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -50,16 +62,21 @@ export default function InvoicePreview({ hotel, billData, calculations }) {
     return `${String(d.getDate()).padStart(2, '0')}-${months[d.getMonth()]}-${d.getFullYear()}, ${hours}:${minutes} ${ampm}`;
   };
 
-  const themeHex = hotel.themeColor || '#1a365d';
+  // Determine total daily rent for duration label
+  const dailyRentDisplay = (roomsList && roomsList.length > 0)
+    ? roomsList.reduce((sum, r) => sum + (parseFloat(r.rentPerDay) || 0), 0)
+    : roomRentPerDay;
 
   return (
-    <div id="invoice-card" className="bg-white w-full max-w-[780px] p-6 sm:p-8 rounded-lg shadow-md border-2 border-brand-800 text-slate-900 relative print-exact">
-      
+    <div 
+      id="invoice-card" 
+      className="bg-white w-full max-w-[780px] p-6 sm:p-8 rounded-lg shadow-md border-2 border-brand-800 text-slate-900 relative print-exact"
+    >
       {/* Subtle Authentic Watermark */}
       <div className="invoice-watermark no-print">{hotel.name.toUpperCase()}</div>
 
       {/* 1. Header Section: Hotel Branding & Identification */}
-      <header className="text-center pb-3 border-b-2 border-brand-800 relative">
+      <header className="invoice-header text-center pb-3 border-b-2 border-brand-800 relative">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-[11px] font-semibold text-brand-900 mb-1 border-b border-brand-200 pb-1">
           <div className="flex items-center gap-1.5 justify-center sm:justify-start">
             <i className="fa-solid fa-file-invoice text-brand-700"></i>
@@ -115,7 +132,7 @@ export default function InvoicePreview({ hotel, billData, calculations }) {
           <div className="p-2.5 space-y-1.5 bg-white">
             <div className="flex">
               <span className="w-32 font-bold text-slate-700">Guest Name:</span>
-              <span className="font-bold text-brand-900 uppercase">{customerName || 'Guest'}</span>
+              <span className="font-bold text-brand-900 uppercase">{customerName || 'Rahul Banerjee'}</span>
             </div>
             <div className="flex">
               <span className="w-32 font-medium text-slate-600">Phone / WhatsApp:</span>
@@ -123,7 +140,17 @@ export default function InvoicePreview({ hotel, billData, calculations }) {
             </div>
             <div className="flex">
               <span className="w-32 font-medium text-slate-600">ID Proof:</span>
-              <span className="text-slate-800">{idType} {idNumber ? `(${idNumber})` : ''}</span>
+              <span className="text-slate-800">
+                {idType}{' '}
+                {idNumber ? (
+                  <>
+                    {/* Screen view for Receptionist / Manager / SuperAdmin */}
+                    <span className="id-full-display font-medium">({idNumber})</span>
+                    {/* Print & PDF Download view with first half masked (XXXX) for customer privacy */}
+                    <span className="id-masked-display font-mono font-semibold">({maskIdNumber(idNumber)})</span>
+                  </>
+                ) : ''}
+              </span>
             </div>
             <div className="flex">
               <span className="w-32 font-medium text-slate-600">No. of Persons:</span>
@@ -143,15 +170,17 @@ export default function InvoicePreview({ hotel, billData, calculations }) {
             </div>
             <div className="flex">
               <span className="w-32 font-medium text-slate-600">Check-in:</span>
-              <span className="font-medium text-slate-800">{formatReceiptDate(checkInDateTime)}</span>
+              <span className="font-medium text-slate-800">{formatReceiptDate(checkInDate || checkInDateTime, 'in')}</span>
             </div>
             <div className="flex">
               <span className="w-32 font-medium text-slate-600">Check-out:</span>
-              <span className="font-medium text-slate-800">{formatReceiptDate(checkOutDateTime)}</span>
+              <span className="font-medium text-slate-800">{formatReceiptDate(checkOutDate || checkOutDateTime, 'out')}</span>
             </div>
             <div className="flex bg-brand-50 -mx-2.5 -mb-2.5 p-1.5 px-2.5 border-t border-brand-200">
               <span className="w-32 font-bold text-brand-900">Total Duration:</span>
-              <span className="font-bold text-brand-900">{numDays} Day{numDays > 1 ? 's' : ''} / Night{numDays > 1 ? 's' : ''} @ ₹ {formatINR(roomRentPerDay)}/day</span>
+              <span className="font-bold text-brand-900">
+                {numDays} Day{numDays > 1 ? 's' : ''} / Night{numDays > 1 ? 's' : ''} @ ₹ {formatINR(dailyRentDisplay)}/day
+              </span>
             </div>
           </div>
 
@@ -171,24 +200,45 @@ export default function InvoicePreview({ hotel, billData, calculations }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-brand-800 text-slate-800 font-medium">
-            {/* 1. Accommodation Charges */}
-            <tr>
-              <td className="py-2 px-2 text-center font-mono">1</td>
-              <td className="py-2 px-3">
-                <div className="font-bold text-slate-900">Room Accommodation Charges</div>
-                <div className="text-[10px] text-slate-500 font-normal">
-                  {roomType} (Room {roomNumber || 'N/A'}) &bull; {numDays} Day{numDays > 1 ? 's' : ''}
-                </div>
-              </td>
-              <td className="py-2 px-2 text-right font-mono">{formatINR(roomRentPerDay)}</td>
-              <td className="py-2 px-2 text-center font-mono">{numDays}</td>
-              <td className="py-2 px-3 text-right font-mono font-bold">{formatINR(baseAccommodation)}</td>
-            </tr>
+            {/* 1. Itemized Room Accommodation Charges */}
+            {roomsList && roomsList.length > 0 ? (
+              roomsList.map((rm, idx) => (
+                <tr key={rm.roomNumber || idx}>
+                  <td className="py-2 px-2 text-center font-mono">{idx + 1}</td>
+                  <td className="py-2 px-3">
+                    <div className="font-bold text-slate-900">
+                      Room Accommodation Charges{roomsList.length > 1 ? ` (Room ${rm.roomNumber})` : ''}
+                    </div>
+                    <div className="text-[10px] text-slate-500 font-normal">
+                      {rm.roomType} (Room {rm.roomNumber}) &bull; {numDays} Day{numDays > 1 ? 's' : ''}
+                    </div>
+                  </td>
+                  <td className="py-2 px-2 text-right font-mono">{formatINR(rm.rentPerDay)}</td>
+                  <td className="py-2 px-2 text-center font-mono">{numDays}</td>
+                  <td className="py-2 px-3 text-right font-mono font-bold">{formatINR(rm.total)}</td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td className="py-2 px-2 text-center font-mono">1</td>
+                <td className="py-2 px-3">
+                  <div className="font-bold text-slate-900">Room Accommodation Charges</div>
+                  <div className="text-[10px] text-slate-500 font-normal">
+                    {roomType} (Room {roomNumber || 'N/A'}) &bull; {numDays} Day{numDays > 1 ? 's' : ''}
+                  </div>
+                </td>
+                <td className="py-2 px-2 text-right font-mono">{formatINR(roomRentPerDay)}</td>
+                <td className="py-2 px-2 text-center font-mono">{numDays}</td>
+                <td className="py-2 px-3 text-right font-mono font-bold">{formatINR(baseAccommodation)}</td>
+              </tr>
+            )}
 
             {/* 2. Extra Guest / Other Charges (if > 0) */}
             {extraCharges > 0 && (
               <tr>
-                <td className="py-2 px-2 text-center font-mono">2</td>
+                <td className="py-2 px-2 text-center font-mono">
+                  {(roomsList?.length || 1) + 1}
+                </td>
                 <td className="py-2 px-3">
                   <div className="font-semibold text-slate-900">Extra Guest / Miscellaneous Charges</div>
                   <div className="text-[10px] text-slate-500 font-normal">Extra mattress & guest amenities</div>
@@ -211,20 +261,20 @@ export default function InvoicePreview({ hotel, billData, calculations }) {
 
             {/* CGST 2.5% */}
             <tr>
-              <td colSpan={4} className="py-1 px-3 text-right text-slate-600">
+              <td colSpan={4} className="py-1 px-3 text-right text-slate-600 text-[11px]">
                 CGST (2.5%):
               </td>
-              <td className="py-1 px-3 text-right font-mono font-medium text-slate-800">
+              <td className="py-1 px-3 text-right font-mono font-medium text-slate-800 text-[11px]">
                 {formatINR(cgst)}
               </td>
             </tr>
 
             {/* SGST 2.5% */}
             <tr>
-              <td colSpan={4} className="py-1 px-3 text-right text-slate-600">
+              <td colSpan={4} className="py-1 px-3 text-right text-slate-600 text-[11px]">
                 SGST (2.5%):
               </td>
-              <td className="py-1 px-3 text-right font-mono font-medium text-slate-800">
+              <td className="py-1 px-3 text-right font-mono font-medium text-slate-800 text-[11px]">
                 {formatINR(sgst)}
               </td>
             </tr>
@@ -241,7 +291,7 @@ export default function InvoicePreview({ hotel, billData, calculations }) {
 
             {/* Net Total Amount */}
             <tr className="bg-slate-100 font-bold border-t border-brand-800">
-              <td colSpan={4} className="py-1.5 px-3 text-right uppercase tracking-wider text-slate-900">
+              <td colSpan={4} className="py-1.5 px-3 text-right uppercase tracking-wider text-slate-900 text-xs">
                 Net Total Bill Amount:
               </td>
               <td className="py-1.5 px-3 text-right font-mono text-brand-900 font-extrabold text-xs sm:text-sm">
@@ -251,10 +301,10 @@ export default function InvoicePreview({ hotel, billData, calculations }) {
 
             {/* Less Advance Paid */}
             <tr className="text-emerald-800">
-              <td colSpan={4} className="py-1.5 px-3 text-right font-medium">
+              <td colSpan={4} className="py-1.5 px-3 text-right font-medium text-[11px]">
                 Less: Advance Paid Received:
               </td>
-              <td className="py-1.5 px-3 text-right font-mono font-bold">
+              <td className="py-1.5 px-3 text-right font-mono font-bold text-[11px]">
                 - {formatINR(advancePaid)}
               </td>
             </tr>
@@ -262,7 +312,7 @@ export default function InvoicePreview({ hotel, billData, calculations }) {
             {/* FINAL TOTAL RECEIPT / BALANCE PAYABLE HIGHLIGHTED ROW */}
             <tr className="bg-brand-800 text-white font-extrabold text-sm border-t-2 border-brand-800 print-exact">
               <td colSpan={4} className="py-2.5 px-3 text-right uppercase tracking-wider">
-                {balanceDue <= 0 ? (balanceDue === 0 ? 'Net Amount Paid in Full:' : 'Refund Due to Guest:') : 'Total Receipt / Balance Payable:'}
+                {balanceDue <= 0 ? (balanceDue === 0 ? 'Total Receipt / Net Amount Paid in Full:' : 'Refund Due to Guest:') : 'Total Receipt / Balance Payable:'}
               </td>
               <td className="py-2.5 px-3 text-right font-mono text-sm sm:text-base tracking-tight">
                 ₹ {formatINR(balanceDue > 0 ? balanceDue : Math.abs(balanceDue))}
@@ -299,7 +349,7 @@ export default function InvoicePreview({ hotel, billData, calculations }) {
         </div>
       </div>
 
-      {/* 8. Signatures Area */}
+      {/* 8. Signatures Area (Customer Sign on Left & Manager Sign on Right) */}
       <div className="mt-6 pt-2 border-t border-brand-800 flex items-end justify-between text-xs">
         
         {/* Left: Customer Signature */}
@@ -312,24 +362,20 @@ export default function InvoicePreview({ hotel, billData, calculations }) {
           </div>
         </div>
 
-        {/* Right: Manager Signature & Stamp */}
+        {/* Right: Manager / Stamp Signature Area */}
         <div className="text-center w-52 relative">
           <div className={`h-16 flex items-center justify-center relative ${showManagerSign ? '' : 'invisible'}`}>
             <img 
-              src="/static/manager-sign.png" 
+              src={`data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='80' viewBox='0 0 240 80'><g fill='none' stroke='%231a365d'><circle cx='50' cy='40' r='32' stroke-width='2' stroke-dasharray='4 2'/><circle cx='50' cy='40' r='27' stroke-width='1'/><text x='50' y='36' font-size='7' font-weight='bold' fill='%231a365d' text-anchor='middle' stroke='none'>${encodeURIComponent(hotel.name.toUpperCase())}</text><text x='50' y='46' font-size='6' fill='%231a365d' text-anchor='middle' stroke='none'>★ DIGHA ★</text><path d='M95 50 Q110 20 125 45 T155 35 T180 55 T215 30' stroke-width='2.5' stroke-linecap='round'/><path d='M90 60 Q150 55 220 52' stroke-width='1.8' stroke-linecap='round'/></g></svg>`}
               alt="Manager Signature & Stamp" 
               className="max-h-16 object-contain pointer-events-none"
-              onError={(e) => {
-                e.target.onerror = null;
-                e.target.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='80' viewBox='0 0 240 80'><g fill='none' stroke='%231a365d'><circle cx='50' cy='40' r='32' stroke-width='2' stroke-dasharray='4 2'/><circle cx='50' cy='40' r='27' stroke-width='1'/><text x='50' y='36' font-size='7' font-weight='bold' fill='%231a365d' text-anchor='middle' stroke='none'>HOTEL ROJANA</text><text x='50' y='46' font-size='6' fill='%231a365d' text-anchor='middle' stroke='none'>★ DIGHA ★</text><path d='M95 50 Q110 20 125 45 T155 35 T180 55 T215 30' stroke-width='2.5' stroke-linecap='round'/><path d='M90 60 Q150 55 220 52' stroke-width='1.8' stroke-linecap='round'/></g></svg>";
-              }}
             />
           </div>
           <div className="border-t border-slate-700 pt-1 font-bold text-brand-900 uppercase tracking-wider text-[11px]">
             Manager
           </div>
           <div className="text-[9.5px] text-slate-600 font-semibold tracking-tight">
-            For {hotel.name}
+            For {hotel.name} / Maa Tara Ent.
           </div>
         </div>
 

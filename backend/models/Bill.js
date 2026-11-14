@@ -1,7 +1,8 @@
 const mongoose = require('mongoose');
 
 const BillSchema = new mongoose.Schema({
-  invoiceNo: { type: String, required: true },
+  id: { type: String, index: true },
+  invoiceNo: { type: String, required: true, index: true },
   hotelId: { type: String, required: true, index: true },
   hotelName: { type: String, required: true },
   billDate: { type: String, required: true },
@@ -17,9 +18,12 @@ const BillSchema = new mongoose.Schema({
   // Stay Details
   roomType: { type: String, required: true },
   roomNumber: { type: String, required: true },
+  roomsList: { type: Array, default: [] },
   numPersons: { type: Number, default: 1 },
   checkInDateTime: { type: String, required: true },
   checkOutDateTime: { type: String, required: true },
+  checkInDate: { type: String, default: '' },
+  checkOutDate: { type: String, default: '' },
   numDays: { type: Number, default: 1 },
   
   // Financials
@@ -37,6 +41,8 @@ const BillSchema = new mongoose.Schema({
   // Meta
   paymentMode: { type: String, default: 'Cash' },
   paymentStatus: { type: String, enum: ['PAID', 'DUE', 'REFUND'], default: 'DUE' },
+  billStatus: { type: String, enum: ['SAVED', 'CLOSED'], default: 'SAVED', index: true },
+  checkedOutAt: { type: Date, default: null },
   remarks: { type: String, default: '' },
   amountInWords: { type: String, default: '' },
   createdByName: { type: String, default: 'Hotel Manager' }
@@ -45,3 +51,4 @@ const BillSchema = new mongoose.Schema({
 });
 
 module.exports = mongoose.models.Bill || mongoose.model('Bill', BillSchema);
+

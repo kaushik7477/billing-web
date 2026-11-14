@@ -1,137 +1,159 @@
 import React, { useState, useEffect } from 'react';
 import PortalScreen from './components/PortalScreen';
-import PinModal from './components/PinModal';
-import AdminLoginModal from './components/AdminLoginModal';
-import BillingEngine from './components/BillingEngine';
+import ManagerWorkspace from './components/ManagerWorkspace';
 import SuperAdminDashboard from './components/SuperAdminDashboard';
 import BillHistoryDrawer from './components/BillHistoryDrawer';
 
 export default function App() {
-  // Navigation View: 'portal' | 'billing' | 'admin'
-  const [currentView, setCurrentView] = useState('portal');
-  
-  // Hotels List
-  const [hotels, setHotels] = useState([]);
-  const [selectedHotel, setSelectedHotel] = useState(null);
-  
-  // Auth state
-  const [managerToken, setManagerToken] = useState(localStorage.getItem('hotel_manager_token') || '');
-  const [adminToken, setAdminToken] = useState(localStorage.getItem('hotel_admin_token') || '');
-  
-  // Modals state
-  const [isPinModalOpen, setIsPinModalOpen] = useState(false);
-  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
-  const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
-
-  // Fetch hotels for portal screen
-  const fetchHotels = async () => {
-    try {
-      const res = await fetch('/api/hotels');
-      const data = await res.json();
-      if (data.success) {
-        setHotels(data.hotels);
-      }
-    } catch (err) {
-      console.error('Failed to fetch hotels:', err);
-    }
+  // Normalize pathname to: '/' | '/admin' | '/manager'
+  const getNormalizedPath = () => {
+    const p = (window.location.pathname || '/').toLowerCase().replace(/\/+$/, '');
+    if (p.startsWith('/admin')) return '/admin';
+    if (p.startsWith('/manager') || p.startsWith('/billing')) return '/manager';
+    return '/';
   };
 
-  useEffect(() => {
-    fetchHotels();
+  const [currentPath, setCurrentPath] = useState(getNormalizedPath);
 
-    // Check if previous session was admin
-    if (adminToken) {
-      setCurrentView('admin');
+  // Navigate helper to change browser address bar without hard reload
+  const navigate = (path) => {
+    const target = path.startsWith('/') ? path : `/${path}`;
+    if (window.location.pathname !== target) {
+      window.history.pushState({}, '', target);
+    }
+    setCurrentPath(target);
+  };
+
+  // Sync with browser Back and Forward navigation buttons
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentPath(getNormalizedPath());
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // Selected Hotel for Manager View
+  const [selectedHotel, setSelectedHotel] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hotel_manager_hotel');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  // Auth tokens (completely isolated per role)
+  const [managerToken, setManagerToken] = useState(() => localStorage.getItem('hotel_manager_token') || '');
+  const [adminToken, setAdminToken] = useState(() => localStorage.getItem('hotel_admin_token') || '');
+
+  // Modals state
+  const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
+
+  // When user visits root '/', if they are on a direct link, stay or redirect cleanly
+  useEffect(() => {
+    const path = getNormalizedPath();
+    if (path === '/') {
+      // If user came to root '/', redirect to their active role if only one is logged in
+      if (adminToken && !managerToken) {
+        navigate('/admin');
+      } else if (managerToken && selectedHotel && !adminToken) {
+        navigate('/manager');
+      }
     }
   }, []);
 
-  // When user clicks a hotel box
-  const handleSelectHotel = (hotel) => {
-    setSelectedHotel(hotel);
-    setIsPinModalOpen(true);
-  };
-
-  // On successful Manager PIN verification
+  // On successful Manager login
   const handleManagerLoginSuccess = (hotel, token) => {
     setSelectedHotel(hotel);
     setManagerToken(token);
     localStorage.setItem('hotel_manager_token', token);
-    setIsPinModalOpen(false);
-    setCurrentView('billing');
+    localStorage.setItem('hotel_manager_hotel', JSON.stringify(hotel));
+    navigate('/manager');
   };
 
   // On successful Admin login
   const handleAdminLoginSuccess = (token) => {
     setAdminToken(token);
     localStorage.setItem('hotel_admin_token', token);
-    setIsAdminModalOpen(false);
-    setCurrentView('admin');
+    navigate('/admin');
   };
 
-  // Logout / Return to Portal
-  const handleLogout = () => {
+  // Manager Logout: ONLY clears Manager session (Leaves Admin session untouched)
+  const handleManagerLogout = () => {
     localStorage.removeItem('hotel_manager_token');
-    localStorage.removeItem('hotel_admin_token');
+    localStorage.removeItem('hotel_manager_hotel');
     setManagerToken('');
-    setAdminToken('');
     setSelectedHotel(null);
-    setCurrentView('portal');
-    fetchHotels();
+    navigate('/manager');
+  };
+
+  // Admin Logout: ONLY clears Admin session (Leaves Manager session untouched)
+  const handleAdminLogout = () => {
+    localStorage.removeItem('hotel_admin_token');
+    setAdminToken('');
+    navigate('/admin');
   };
 
   return (
     <div className="min-h-screen">
       
-      {/* 1. PORTAL VIEW (3 Hotel Boxes + 1 Super Admin Box) */}
-      {currentView === 'portal' && (
+      {/* 1. SUPER ADMIN ROUTE (/admin) */}
+      {currentPath === '/admin' && (
+        adminToken ? (
+          <SuperAdminDashboard
+            token={adminToken}
+            onLogout={handleAdminLogout}
+            onNavigateManager={() => navigate('/manager')}
+          />
+        ) : (
+          <PortalScreen
+            targetRole="admin"
+            onManagerLoginSuccess={handleManagerLoginSuccess}
+            onAdminLoginSuccess={handleAdminLoginSuccess}
+            onNavigate={navigate}
+          />
+        )
+      )}
+
+      {/* 2. MANAGER WORKSPACE ROUTE (/manager) */}
+      {currentPath === '/manager' && (
+        (managerToken && selectedHotel) ? (
+          <ManagerWorkspace
+            hotel={selectedHotel}
+            token={managerToken}
+            onLogout={handleManagerLogout}
+            onNavigateAdmin={() => navigate('/admin')}
+          />
+        ) : (
+          <PortalScreen
+            targetRole="manager"
+            onManagerLoginSuccess={handleManagerLoginSuccess}
+            onAdminLoginSuccess={handleAdminLoginSuccess}
+            onNavigate={navigate}
+          />
+        )
+      )}
+
+      {/* 3. ROOT UNIFIED PORTAL (/) */}
+      {currentPath === '/' && (
         <PortalScreen
-          hotels={hotels}
-          onSelectHotel={handleSelectHotel}
-          onOpenAdminLogin={() => setIsAdminModalOpen(true)}
+          targetRole="all"
+          adminLoggedIn={!!adminToken}
+          managerLoggedIn={!!(managerToken && selectedHotel)}
+          activeHotelName={selectedHotel?.name}
+          onManagerLoginSuccess={handleManagerLoginSuccess}
+          onAdminLoginSuccess={handleAdminLoginSuccess}
+          onNavigate={navigate}
         />
       )}
-
-      {/* 2. MANAGER BILLING VIEW */}
-      {currentView === 'billing' && selectedHotel && (
-        <BillingEngine
-          hotel={selectedHotel}
-          token={managerToken}
-          onLogout={handleLogout}
-          onOpenHistory={() => setIsHistoryDrawerOpen(true)}
-        />
-      )}
-
-      {/* 3. SUPER ADMIN DASHBOARD VIEW */}
-      {currentView === 'admin' && (
-        <SuperAdminDashboard
-          token={adminToken}
-          onLogout={handleLogout}
-        />
-      )}
-
-      {/* PIN Verification Modal */}
-      <PinModal
-        hotel={selectedHotel}
-        isOpen={isPinModalOpen}
-        onClose={() => setIsPinModalOpen(false)}
-        onLoginSuccess={handleManagerLoginSuccess}
-      />
-
-      {/* Super Admin Login Modal */}
-      <AdminLoginModal
-        isOpen={isAdminModalOpen}
-        onClose={() => setIsAdminModalOpen(false)}
-        onLoginSuccess={handleAdminLoginSuccess}
-      />
 
       {/* Bill Records Drawer */}
       <BillHistoryDrawer
         hotel={selectedHotel}
         isOpen={isHistoryDrawerOpen}
         onClose={() => setIsHistoryDrawerOpen(false)}
-        onSelectBill={(bill) => {
-          setIsHistoryDrawerOpen(false);
-        }}
+        onSelectBill={() => setIsHistoryDrawerOpen(false)}
       />
 
     </div>

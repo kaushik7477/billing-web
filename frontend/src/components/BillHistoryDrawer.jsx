@@ -133,3 +133,4 @@ export default function BillHistoryDrawer({ hotel, isOpen, onClose, onSelectBill
     </div>
   );
 }
+

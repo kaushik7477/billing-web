@@ -84,3 +84,4 @@ export function formatINR(val) {
     maximumFractionDigits: 2
   });
 }
+
