@@ -6,16 +6,7 @@
     "floor": 1,
     "roomType": "Standard Room",
     "defaultRent": 1500,
-    "status": "available",
-    "activeIssues": [],
-    "maintenanceUntil": null,
-    "currentGuestName": "",
-    "currentBillId": "",
-    "currentInvoiceNo": "",
-    "updatedAt": "2026-11-12T11:46:44.795Z",
-    "currentGuestPhone": "",
-    "checkInDateTime": "",
-    "expectedCheckOutDateTime": ""
+    "status": "available"
   },
   {
     "roomId": "hotel-1-102",
@@ -24,16 +15,7 @@
     "floor": 1,
     "roomType": "Standard Room",
     "defaultRent": 1500,
-    "status": "available",
-    "maintenanceUntil": null,
-    "currentGuestName": "",
-    "currentBillId": "",
-    "currentInvoiceNo": "",
-    "updatedAt": "2026-11-12T11:52:41.328Z",
-    "currentGuestPhone": "",
-    "checkInDateTime": "",
-    "expectedCheckOutDateTime": "",
-    "activeIssues": []
+    "status": "available"
   },
   {
     "roomId": "hotel-1-103",
@@ -42,15 +24,7 @@
     "floor": 1,
     "roomType": "Deluxe Room",
     "defaultRent": 2200,
-    "status": "available",
-    "maintenanceUntil": null,
-    "currentGuestName": "",
-    "currentBillId": "",
-    "currentInvoiceNo": "",
-    "currentGuestPhone": "",
-    "checkInDateTime": "",
-    "expectedCheckOutDateTime": "",
-    "activeIssues": []
+    "status": "available"
   },
   {
     "roomId": "hotel-1-104",
@@ -59,15 +33,7 @@
     "floor": 1,
     "roomType": "Deluxe Room",
     "defaultRent": 2200,
-    "status": "available",
-    "activeIssues": [],
-    "currentGuestName": "",
-    "currentGuestPhone": "",
-    "currentBillId": "",
-    "currentInvoiceNo": "",
-    "checkInDateTime": "",
-    "expectedCheckOutDateTime": "",
-    "maintenanceUntil": null
+    "status": "available"
   },
   {
     "roomId": "hotel-1-105",
@@ -76,15 +42,7 @@
     "floor": 1,
     "roomType": "Suite Room",
     "defaultRent": 4500,
-    "status": "available",
-    "maintenanceUntil": null,
-    "currentGuestName": "",
-    "currentBillId": "",
-    "currentInvoiceNo": "",
-    "currentGuestPhone": "",
-    "checkInDateTime": "",
-    "expectedCheckOutDateTime": "",
-    "activeIssues": []
+    "status": "available"
   },
   {
     "roomId": "hotel-1-201",
@@ -93,16 +51,7 @@
     "floor": 2,
     "roomType": "Deluxe Room",
     "defaultRent": 2200,
-    "status": "available",
-    "maintenanceUntil": null,
-    "currentGuestName": "",
-    "currentBillId": "",
-    "currentInvoiceNo": "",
-    "updatedAt": "2026-11-14T06:24:34.170Z",
-    "currentGuestPhone": "",
-    "checkInDateTime": "",
-    "expectedCheckOutDateTime": "",
-    "activeIssues": []
+    "status": "available"
   },
   {
     "roomId": "hotel-1-202",
@@ -111,16 +60,7 @@
     "floor": 2,
     "roomType": "Deluxe Room",
     "defaultRent": 2200,
-    "status": "available",
-    "maintenanceUntil": null,
-    "currentGuestName": "",
-    "currentBillId": "",
-    "currentInvoiceNo": "",
-    "updatedAt": "2026-11-12T11:46:44.813Z",
-    "currentGuestPhone": "",
-    "checkInDateTime": "",
-    "expectedCheckOutDateTime": "",
-    "activeIssues": []
+    "status": "available"
   },
   {
     "roomId": "hotel-1-203",
@@ -129,16 +69,7 @@
     "floor": 2,
     "roomType": "Super Deluxe Room",
     "defaultRent": 3000,
-    "status": "available",
-    "maintenanceUntil": null,
-    "currentGuestName": "",
-    "currentBillId": "",
-    "currentInvoiceNo": "",
-    "updatedAt": "2026-11-12T11:46:45.519Z",
-    "currentGuestPhone": "",
-    "checkInDateTime": "",
-    "expectedCheckOutDateTime": "",
-    "activeIssues": []
+    "status": "available"
   },
   {
     "roomId": "hotel-1-204",
@@ -147,16 +78,7 @@
     "floor": 2,
     "roomType": "Super Deluxe Room",
     "defaultRent": 3000,
-    "status": "available",
-    "currentGuestName": "",
-    "currentInvoiceNo": "",
-    "maintenanceUntil": null,
-    "currentBillId": "",
-    "updatedAt": "2026-11-12T11:46:45.528Z",
-    "currentGuestPhone": "",
-    "checkInDateTime": "",
-    "expectedCheckOutDateTime": "",
-    "activeIssues": []
+    "status": "available"
   },
   {
     "roomId": "hotel-1-205",
@@ -165,16 +87,7 @@
     "floor": 2,
     "roomType": "Suite Room",
     "defaultRent": 4500,
-    "status": "available",
-    "currentGuestName": "",
-    "currentGuestPhone": "",
-    "currentBillId": "",
-    "currentInvoiceNo": "",
-    "checkInDateTime": "",
-    "expectedCheckOutDateTime": "",
-    "maintenanceUntil": null,
-    "activeIssues": [],
-    "updatedAt": "2026-11-14T06:24:34.163Z"
+    "status": "available"
   },
   {
     "roomId": "hotel-1-301",
@@ -183,15 +96,7 @@
     "floor": 3,
     "roomType": "Deluxe Room",
     "defaultRent": 2200,
-    "status": "available",
-    "maintenanceUntil": null,
-    "currentGuestName": "",
-    "currentBillId": "",
-    "currentInvoiceNo": "",
-    "checkInDateTime": "",
-    "expectedCheckOutDateTime": "",
-    "currentGuestPhone": "",
-    "activeIssues": []
+    "status": "available"
   },
   {
     "roomId": "hotel-1-302",
@@ -200,16 +105,7 @@
     "floor": 3,
     "roomType": "Super Deluxe Room",
     "defaultRent": 3000,
-    "status": "available",
-    "maintenanceUntil": null,
-    "currentGuestName": "",
-    "currentBillId": "",
-    "currentInvoiceNo": "",
-    "updatedAt": "2026-11-12T11:03:07.618Z",
-    "currentGuestPhone": "",
-    "checkInDateTime": "",
-    "expectedCheckOutDateTime": "",
-    "activeIssues": []
+    "status": "available"
   },
   {
     "roomId": "hotel-1-303",
@@ -218,15 +114,7 @@
     "floor": 3,
     "roomType": "Super Deluxe Room",
     "defaultRent": 3000,
-    "status": "available",
-    "currentGuestName": "",
-    "currentGuestPhone": "",
-    "currentBillId": "",
-    "currentInvoiceNo": "",
-    "checkInDateTime": "",
-    "expectedCheckOutDateTime": "",
-    "maintenanceUntil": null,
-    "activeIssues": []
+    "status": "available"
   },
   {
     "roomId": "hotel-1-304",
@@ -235,15 +123,7 @@
     "floor": 3,
     "roomType": "Suite Room",
     "defaultRent": 4500,
-    "status": "available",
-    "maintenanceUntil": null,
-    "currentGuestName": "",
-    "currentBillId": "",
-    "currentInvoiceNo": "",
-    "currentGuestPhone": "",
-    "checkInDateTime": "",
-    "expectedCheckOutDateTime": "",
-    "activeIssues": []
+    "status": "available"
   },
   {
     "roomId": "hotel-1-305",
@@ -252,15 +132,7 @@
     "floor": 3,
     "roomType": "Suite Room",
     "defaultRent": 4500,
-    "status": "available",
-    "currentGuestName": "",
-    "currentGuestPhone": "",
-    "currentBillId": "",
-    "currentInvoiceNo": "",
-    "checkInDateTime": "",
-    "expectedCheckOutDateTime": "",
-    "maintenanceUntil": null,
-    "activeIssues": []
+    "status": "available"
   },
   {
     "roomId": "hotel-2-101",
@@ -269,15 +141,7 @@
     "floor": 1,
     "roomType": "Economy AC Room",
     "defaultRent": 1400,
-    "status": "occupied",
-    "currentGuestName": "Test Guest 1",
-    "currentGuestPhone": "",
-    "currentBillId": "bill-1794659449377-170",
-    "currentInvoiceNo": "1769",
-    "checkInDateTime": "",
-    "expectedCheckOutDateTime": "",
-    "maintenanceUntil": null,
-    "activeIssues": []
+    "status": "available"
   },
   {
     "roomId": "hotel-2-102",
@@ -286,15 +150,7 @@
     "floor": 1,
     "roomType": "Economy AC Room",
     "defaultRent": 1400,
-    "status": "occupied",
-    "currentGuestName": "Test Guest 2",
-    "currentGuestPhone": "",
-    "currentBillId": "bill-1794659450278-40",
-    "currentInvoiceNo": "10001",
-    "checkInDateTime": "",
-    "expectedCheckOutDateTime": "",
-    "maintenanceUntil": null,
-    "activeIssues": []
+    "status": "available"
   },
   {
     "roomId": "hotel-2-108",
@@ -303,15 +159,7 @@
     "floor": 1,
     "roomType": "Premium Sea View",
     "defaultRent": 2600,
-    "status": "available",
-    "currentGuestName": "",
-    "currentInvoiceNo": "",
-    "currentGuestPhone": "",
-    "currentBillId": "",
-    "checkInDateTime": "",
-    "expectedCheckOutDateTime": "",
-    "maintenanceUntil": null,
-    "activeIssues": []
+    "status": "available"
   },
   {
     "roomId": "hotel-2-201",
@@ -320,15 +168,7 @@
     "floor": 2,
     "roomType": "Premium Sea View",
     "defaultRent": 2600,
-    "status": "available",
-    "currentGuestName": "",
-    "currentGuestPhone": "",
-    "currentBillId": "",
-    "currentInvoiceNo": "",
-    "checkInDateTime": "",
-    "expectedCheckOutDateTime": "",
-    "maintenanceUntil": null,
-    "activeIssues": []
+    "status": "available"
   },
   {
     "roomId": "hotel-2-215",
@@ -337,15 +177,7 @@
     "floor": 2,
     "roomType": "Executive Deluxe",
     "defaultRent": 3500,
-    "status": "available",
-    "currentGuestName": "",
-    "currentInvoiceNo": "",
-    "currentGuestPhone": "",
-    "currentBillId": "",
-    "checkInDateTime": "",
-    "expectedCheckOutDateTime": "",
-    "maintenanceUntil": null,
-    "activeIssues": []
+    "status": "available"
   },
   {
     "roomId": "hotel-2-301",
@@ -354,16 +186,7 @@
     "floor": 3,
     "roomType": "Family Suite (4 Bed)",
     "defaultRent": 5000,
-    "status": "available",
-    "maintenanceUntil": null,
-    "currentGuestName": "",
-    "currentBillId": "",
-    "currentInvoiceNo": "",
-    "updatedAt": "2026-11-13T11:58:45.535Z",
-    "currentGuestPhone": "",
-    "checkInDateTime": "",
-    "expectedCheckOutDateTime": "",
-    "activeIssues": []
+    "status": "available"
   },
   {
     "roomId": "hotel-3-101",
@@ -372,15 +195,7 @@
     "floor": 1,
     "roomType": "Standard Non-AC",
     "defaultRent": 1200,
-    "status": "available",
-    "currentGuestName": "",
-    "currentGuestPhone": "",
-    "currentBillId": "",
-    "currentInvoiceNo": "",
-    "checkInDateTime": "",
-    "expectedCheckOutDateTime": "",
-    "maintenanceUntil": null,
-    "activeIssues": []
+    "status": "available"
   },
   {
     "roomId": "hotel-3-201",
@@ -389,15 +204,7 @@
     "floor": 2,
     "roomType": "Deluxe AC Room",
     "defaultRent": 2400,
-    "status": "available",
-    "currentGuestName": "",
-    "currentGuestPhone": "",
-    "currentBillId": "",
-    "currentInvoiceNo": "",
-    "checkInDateTime": "",
-    "expectedCheckOutDateTime": "",
-    "maintenanceUntil": null,
-    "activeIssues": []
+    "status": "available"
   },
   {
     "roomId": "hotel-3-305",
@@ -406,14 +213,6 @@
     "floor": 3,
     "roomType": "Deluxe AC Room",
     "defaultRent": 2400,
-    "status": "available",
-    "currentGuestName": "",
-    "currentInvoiceNo": "",
-    "currentGuestPhone": "",
-    "currentBillId": "",
-    "checkInDateTime": "",
-    "expectedCheckOutDateTime": "",
-    "maintenanceUntil": null,
-    "activeIssues": []
+    "status": "available"
   }
 ]
