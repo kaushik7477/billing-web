@@ -46,7 +46,9 @@ const BillSchema = new mongoose.Schema({
   remarks: { type: String, default: '' },
   amountInWords: { type: String, default: '' },
   createdByName: { type: String, default: 'Hotel Manager' },
-  isNonGST: { type: Boolean, default: false }
+  isNonGST: { type: Boolean, default: false },
+  gstInvoiceNo: { type: String, default: '' },
+  nonGstInvoiceNo: { type: String, default: '' }
 }, {
   timestamps: true
 });

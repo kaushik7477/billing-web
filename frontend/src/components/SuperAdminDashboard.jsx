@@ -536,30 +536,44 @@ export default function SuperAdminDashboard({ token, onLogout, onNavigateManager
               </button>
             </div>
 
-            <InvoicePreview
-              hotel={{
-                name: selectedBillForPreview.hotelName,
-                subText: selectedBillForPreview.hotelId === 'hotel-1' ? 'Organised by Maa Tara Enterprise' : 'Beach Resort & Hospitality',
-                address: 'Digha, Purba Medinipur, West Bengal',
+            {(() => {
+              const matchedHotel = hotels.find(h => h.hotelId === selectedBillForPreview.hotelId) || {
+                name: selectedBillForPreview.hotelName || (selectedBillForPreview.hotelId === 'hotel-2' ? 'HOTEL SERENA' : 'Hotel Rojana'),
+                subText: selectedBillForPreview.hotelId === 'hotel-2' ? 'Organised By - Maa Tara Enterprise' : 'Organised by Maa Tara Enterprise',
+                address: selectedBillForPreview.hotelId === 'hotel-2' ? 'Economy Hotel Sector, New Digha, Purba Medinipur, W.B.' : 'Old Digha, Purba Medinipur, W.B.',
                 phone: '9046926801',
                 gstin: '19ABYFM7409E1Z0',
                 themeColor: '#1a365d'
-              }}
-              billData={selectedBillForPreview}
-              calculations={{
-                roomRentPerDay: selectedBillForPreview.roomRentPerDay,
-                baseAccommodation: selectedBillForPreview.baseAccommodation,
-                extraCharges: selectedBillForPreview.extraCharges,
-                subtotal: selectedBillForPreview.subtotal,
-                cgst: selectedBillForPreview.cgst,
-                sgst: selectedBillForPreview.sgst,
-                totalGst: selectedBillForPreview.totalGst,
-                netTotal: selectedBillForPreview.netTotal,
-                advancePaid: selectedBillForPreview.advancePaid,
-                balanceDue: selectedBillForPreview.balanceDue,
-                amountInWords: selectedBillForPreview.amountInWords
-              }}
-            />
+              };
+
+              return (
+                <InvoicePreview
+                  hotel={matchedHotel}
+                  billData={selectedBillForPreview}
+                  calculations={{
+                    roomRentPerDay: selectedBillForPreview.roomRentPerDay,
+                    baseAccommodation: selectedBillForPreview.baseAccommodation,
+                    extraCharges: selectedBillForPreview.extraCharges,
+                    subtotal: selectedBillForPreview.subtotal,
+                    cgst: selectedBillForPreview.cgst,
+                    sgst: selectedBillForPreview.sgst,
+                    totalGst: selectedBillForPreview.totalGst,
+                    netTotal: selectedBillForPreview.netTotal,
+                    advancePaid: selectedBillForPreview.advancePaid,
+                    balanceDue: selectedBillForPreview.balanceDue,
+                    amountInWords: selectedBillForPreview.amountInWords,
+                    roomsList: selectedBillForPreview.roomsList || []
+                  }}
+                  billSettings={{
+                    isNonGST: Boolean(selectedBillForPreview.isNonGST),
+                    showGST: !selectedBillForPreview.isNonGST,
+                    showManagerSign: selectedBillForPreview.showManagerSign !== false,
+                    showTerms: true,
+                    showRemarks: true
+                  }}
+                />
+              );
+            })()}
 
             <div className="flex justify-end gap-2 pt-4 mt-4 border-t border-slate-100 no-print">
               <button

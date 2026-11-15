@@ -25,12 +25,15 @@ export default function InvoicesArchiveView({
   onBackToDashboard
 }) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [billTypeFilter, setBillTypeFilter] = useState('all'); // 'all', 'gst', 'non-gst'
 
   // Filter bills
   const filteredBills = allBills.filter(b => {
     if (hotelFilter !== 'all' && b.hotelId !== hotelFilter) return false;
     if (paymentModeFilter !== 'all' && b.paymentMode !== paymentModeFilter) return false;
     if (statusFilter !== 'all' && b.paymentStatus !== statusFilter) return false;
+    if (billTypeFilter === 'gst' && b.isNonGST) return false;
+    if (billTypeFilter === 'non-gst' && !b.isNonGST) return false;
 
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
@@ -125,8 +128,18 @@ export default function InvoicesArchiveView({
             </button>
           </div>
 
-          {/* Mode & Status Filters */}
+          {/* Mode, Status & Bill Type Filters */}
           <div className="flex items-center gap-2">
+            <select
+              value={billTypeFilter}
+              onChange={(e) => setBillTypeFilter(e.target.value)}
+              className="px-2.5 py-1.5 text-xs font-mono bg-slate-50 border border-slate-200 rounded-lg text-slate-700 outline-none cursor-pointer"
+            >
+              <option value="all">All Bill Types</option>
+              <option value="gst">GST Tax Invoices</option>
+              <option value="non-gst">Non-GST Bills</option>
+            </select>
+
             <select
               value={paymentModeFilter}
               onChange={(e) => setPaymentModeFilter(e.target.value)}
@@ -193,7 +206,20 @@ export default function InvoicesArchiveView({
                 filteredBills.map((b) => (
                   <tr key={b.id || b._id} className="hover:bg-slate-50/80 transition">
                     <td className="py-2.5 px-3 text-slate-500 font-mono">{b.billDate}</td>
-                    <td className="py-2.5 px-3 font-mono font-bold text-blue-700">{b.invoiceNo}</td>
+                    <td className="py-2.5 px-3 font-mono">
+                      <div className="font-bold text-blue-700 flex items-center gap-1.5">
+                        <span>{b.invoiceNo}</span>
+                        {b.isNonGST ? (
+                          <span className="text-[9px] font-sans font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300">
+                            Non-GST
+                          </span>
+                        ) : (
+                          <span className="text-[9px] font-sans font-extrabold uppercase px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 border border-blue-300">
+                            GST
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="py-2.5 px-3 font-semibold text-slate-900">{b.hotelName}</td>
                     <td className="py-2.5 px-3">
                       <div className="font-medium text-slate-900">{b.customerName}</div>

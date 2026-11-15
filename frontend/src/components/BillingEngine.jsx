@@ -108,28 +108,33 @@ export default function BillingEngine({
 
   // Fetch next sequential invoice number from database (supporting separate Non-GST vs GST sequence)
   const fetchNextInvoiceNumber = async (forNonGST = false) => {
-    if (!hotel?.hotelId) return;
+    if (!hotel?.hotelId) return null;
     try {
       const res = await fetch(`/api/bills/next-invoice-no?hotelId=${hotel.hotelId}&hotelName=${encodeURIComponent(hotel.name || '')}&isNonGST=${forNonGST}`);
       const data = await res.json();
       if (data.success && data.nextInvoiceNo) {
         setBillData(prev => ({
           ...prev,
-          invoiceNo: data.nextInvoiceNo
+          invoiceNo: data.nextInvoiceNo,
+          ...(forNonGST ? { nonGstInvoiceNo: data.nextInvoiceNo } : { gstInvoiceNo: data.nextInvoiceNo })
         }));
+        return data.nextInvoiceNo;
       }
     } catch (err) {
       console.error('Failed to fetch next sequential invoice number:', err);
     }
+    return null;
   };
 
   // Handle Non-GST toggle — requires PIN verification to enable
-  const handleNonGSTToggle = () => {
+  const handleNonGSTToggle = async () => {
     if (billSettings.isNonGST) {
-      // Turning OFF: no PIN needed -> switch back to GST sequence if fresh unsaved bill
+      // Turning OFF: switch back to GST sequence
       setBillSettings(s => ({ ...s, isNonGST: false, showGST: true }));
-      if (!billData._id && !billData.id) {
-        fetchNextInvoiceNumber(false);
+      if (billData.gstInvoiceNo && (!/^\d+$/.test(String(billData.gstInvoiceNo).trim()) || parseInt(billData.gstInvoiceNo, 10) < 10000)) {
+        setBillData(prev => ({ ...prev, invoiceNo: prev.gstInvoiceNo }));
+      } else {
+        await fetchNextInvoiceNumber(false);
       }
     } else {
       // Turning ON: ask for manager PIN
@@ -154,9 +159,11 @@ export default function BillingEngine({
         setBillSettings(s => ({ ...s, isNonGST: true, showGST: false }));
         setShowPinModal(false);
         setPinInput('');
-        // If creating a fresh bill, switch to the separate non-GST sequence (starts at 10001)
-        if (!billData._id && !billData.id) {
-          fetchNextInvoiceNumber(true);
+        // Switch invoice number to Non-GST sequence
+        if (billData.nonGstInvoiceNo && /^\d+$/.test(String(billData.nonGstInvoiceNo).trim()) && parseInt(billData.nonGstInvoiceNo, 10) >= 10000) {
+          setBillData(prev => ({ ...prev, invoiceNo: prev.nonGstInvoiceNo }));
+        } else {
+          await fetchNextInvoiceNumber(true);
         }
       } else {
         setPinError(data.message || 'Incorrect PIN.');
@@ -191,10 +198,32 @@ export default function BillingEngine({
       if (!b.checkOutDate && b.checkOutDateTime) {
         b.checkOutDate = b.checkOutDateTime.slice(0, 10);
       }
+
+      // Preserve both sequences if existing
+      const wasNonGst = Boolean(b.isNonGST);
+      const isCurrentNumNonGst = /^\d+$/.test(String(b.invoiceNo).trim()) && parseInt(b.invoiceNo, 10) >= 10000;
+
+      const nonGstNo = b.nonGstInvoiceNo || (wasNonGst || isCurrentNumNonGst ? b.invoiceNo : '');
+      const gstNo = b.gstInvoiceNo || (!wasNonGst && !isCurrentNumNonGst ? b.invoiceNo : '');
+
+      b.nonGstInvoiceNo = nonGstNo;
+      b.gstInvoiceNo = gstNo;
+
+      // As user requested: saved bills ALWAYS open in GST layout with Meta Data OFF.
+      // If the bill was Non-GST originally, display the GST sequence number in GST mode!
+      if (gstNo) {
+        b.invoiceNo = gstNo;
+      }
+
       setBillData(b);
       setBillSettings(s => ({ ...s, isNonGST: false, showGST: true }));
+
+      // If no GST number was ever allocated for this bill yet, fetch one from server
+      if (!gstNo && hotel?.hotelId) {
+        fetchNextInvoiceNumber(false);
+      }
     }
-  }, [initialBillData]);
+  }, [initialBillData, hotel?.hotelId]);
 
   // Handle Multiple Rooms Selected from Modal
   const handleRoomsSelected = (rooms) => {
@@ -421,6 +450,13 @@ export default function BillingEngine({
       const inDate = billData.checkInDate || (billData.checkInDateTime ? billData.checkInDateTime.slice(0, 10) : todayStr);
       const outDate = billData.checkOutDate || (billData.checkOutDateTime ? billData.checkOutDateTime.slice(0, 10) : tomorrowStr);
 
+      const isTargetNonGST = Boolean(billSettings.isNonGST);
+      const currentInvoiceNo = billData.invoiceNo;
+      const isCurrentNonGstNum = /^\d+$/.test(String(currentInvoiceNo).trim()) && parseInt(currentInvoiceNo, 10) >= 10000;
+
+      const gstNo = billData.gstInvoiceNo || (!isTargetNonGST && !isCurrentNonGstNum ? currentInvoiceNo : '');
+      const nonGstNo = billData.nonGstInvoiceNo || (isTargetNonGST || isCurrentNonGstNum ? currentInvoiceNo : '');
+
       const payload = {
         ...billData,
         ...calculations,
@@ -434,7 +470,10 @@ export default function BillingEngine({
         hotelName: hotel.name,
         paymentStatus: balanceDue <= 0 ? 'PAID' : 'DUE',
         billStatus: billData.billStatus || 'SAVED',
-        isNonGST: billSettings.isNonGST || false
+        isNonGST: isTargetNonGST,
+        invoiceNo: currentInvoiceNo,
+        gstInvoiceNo: gstNo,
+        nonGstInvoiceNo: nonGstNo
       };
 
       const billId = billData._id || billData.id;
@@ -480,12 +519,22 @@ export default function BillingEngine({
 
     setIsCheckingOut(true);
     try {
+      const isTargetNonGST = Boolean(billSettings.isNonGST);
       const res = await fetch(`/api/bills/${billId}/checkout`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
-        }
+        },
+        body: JSON.stringify({
+          isNonGST: isTargetNonGST,
+          invoiceNo: billData.invoiceNo,
+          gstInvoiceNo: billData.gstInvoiceNo,
+          nonGstInvoiceNo: billData.nonGstInvoiceNo,
+          paymentMode: billData.paymentMode,
+          subtotal: calculations.subtotal,
+          amountInWords: calculations.amountInWords
+        })
       });
       const data = await res.json();
       if (data.success) {

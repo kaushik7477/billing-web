@@ -444,7 +444,7 @@ const db = {
     return result;
   },
 
-  async checkoutBill(id) {
+  async checkoutBill(id, additionalUpdates = {}) {
     const bill = await db.getBillById(id);
     if (!bill) return null;
 
@@ -453,12 +453,13 @@ const db = {
       billStatus: 'CLOSED',
       paymentStatus: 'PAID',
       balanceDue: 0,
-      checkedOutAt
+      checkedOutAt,
+      ...additionalUpdates
     });
 
     // Start 30-min housekeeping cycle on room(s)
-    if (bill.hotelId) {
-      await db.checkoutRoom(bill.hotelId, bill.roomNumber, bill.id || bill._id || id, bill.invoiceNo);
+    if (updated && updated.hotelId) {
+      await db.checkoutRoom(updated.hotelId, updated.roomNumber, updated.id || updated._id || id, updated.invoiceNo);
     }
 
     return updated;

@@ -14,7 +14,8 @@ async function generateNextInvoiceNo(hotelId, hotelName = '', isNonGST = false) 
 
   // 1. NON-GST (META DATA) INVOICE SERIES
   if (isNonGST) {
-    const startNum = Number(hotel?.nonGstStartNumber) || 10001;
+    const rawStart = Number(hotel?.nonGstStartNumber);
+    const startNum = (!rawStart || rawStart < 1000) ? 10001 : rawStart;
     let maxSeq = 0;
 
     for (const b of allBills) {
@@ -224,6 +225,48 @@ router.get('/:id', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const updateData = req.body;
+    const existing = await db.getBillById(req.params.id);
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Bill not found.' });
+    }
+
+    if (updateData.isNonGST !== undefined) {
+      const targetIsNonGST = Boolean(updateData.isNonGST);
+      let currentInv = updateData.invoiceNo || existing.invoiceNo;
+      const isCurrentlyNonGstSeq = /^\d+$/.test(String(currentInv).trim()) && parseInt(currentInv, 10) >= 10000;
+
+      if (targetIsNonGST && !isCurrentlyNonGstSeq) {
+        if (existing.nonGstInvoiceNo) {
+          updateData.invoiceNo = existing.nonGstInvoiceNo;
+        } else {
+          const { nextInvoiceNo } = await generateNextInvoiceNo(existing.hotelId, existing.hotelName, true);
+          updateData.invoiceNo = nextInvoiceNo;
+          updateData.nonGstInvoiceNo = nextInvoiceNo;
+        }
+        updateData.cgst = 0;
+        updateData.sgst = 0;
+        updateData.totalGst = 0;
+        updateData.netTotal = updateData.subtotal || existing.subtotal;
+      } else if (!targetIsNonGST && isCurrentlyNonGstSeq) {
+        if (existing.gstInvoiceNo) {
+          updateData.invoiceNo = existing.gstInvoiceNo;
+        } else {
+          const { nextInvoiceNo } = await generateNextInvoiceNo(existing.hotelId, existing.hotelName, false);
+          updateData.invoiceNo = nextInvoiceNo;
+          updateData.gstInvoiceNo = nextInvoiceNo;
+        }
+        const sub = updateData.subtotal || existing.subtotal || 0;
+        const rate = sub >= 1000 ? 0.025 : 0;
+        const cgst = Math.round(sub * rate * 100) / 100;
+        const sgst = Math.round(sub * rate * 100) / 100;
+        const totalGst = Math.round((cgst + sgst) * 100) / 100;
+        updateData.cgst = cgst;
+        updateData.sgst = sgst;
+        updateData.totalGst = totalGst;
+        updateData.netTotal = Math.round((sub + totalGst) * 100) / 100;
+      }
+    }
+
     const balance = parseFloat(updateData.balanceDue) || 0;
     if (updateData.balanceDue !== undefined) {
       updateData.paymentStatus = balance <= 0 ? 'PAID' : 'DUE';
@@ -262,9 +305,76 @@ router.put('/:id', async (req, res) => {
 });
 
 // POST /api/bills/:id/checkout (Checkout & finalize bill -> 30-min housekeeping cycle)
+// Supports finalizing dynamically as GST Tax Invoice OR Non-GST Bill based on manager's checkout state
 router.post('/:id/checkout', async (req, res) => {
   try {
-    const closed = await db.checkoutBill(req.params.id);
+    const bill = await db.getBillById(req.params.id);
+    if (!bill) {
+      return res.status(404).json({ success: false, message: 'Bill not found.' });
+    }
+
+    const { isNonGST, invoiceNo, paymentMode, gstInvoiceNo, nonGstInvoiceNo } = req.body || {};
+    const targetIsNonGST = isNonGST !== undefined ? Boolean(isNonGST) : Boolean(bill.isNonGST);
+
+    let finalInvoiceNo = invoiceNo || bill.invoiceNo;
+    const additionalUpdates = {
+      isNonGST: targetIsNonGST
+    };
+
+    if (paymentMode) {
+      additionalUpdates.paymentMode = paymentMode;
+    }
+    if (gstInvoiceNo) additionalUpdates.gstInvoiceNo = gstInvoiceNo;
+    if (nonGstInvoiceNo) additionalUpdates.nonGstInvoiceNo = nonGstInvoiceNo;
+
+    const sub = parseFloat(req.body.subtotal) || parseFloat(bill.subtotal) || parseFloat(bill.baseAccommodation) || 0;
+    additionalUpdates.subtotal = sub;
+
+    if (targetIsNonGST) {
+      // Must be Non-GST sequence (>= 10000, starts with nonGstStartNumber)
+      const isCurrentlyNonGstSeq = /^\d+$/.test(String(finalInvoiceNo).trim()) && parseInt(finalInvoiceNo, 10) >= 10000;
+      if (!isCurrentlyNonGstSeq) {
+        if (bill.nonGstInvoiceNo && /^\d+$/.test(String(bill.nonGstInvoiceNo).trim()) && parseInt(bill.nonGstInvoiceNo, 10) >= 10000) {
+          finalInvoiceNo = bill.nonGstInvoiceNo;
+        } else {
+          const { nextInvoiceNo } = await generateNextInvoiceNo(bill.hotelId, bill.hotelName, true);
+          finalInvoiceNo = nextInvoiceNo;
+          additionalUpdates.nonGstInvoiceNo = nextInvoiceNo;
+        }
+      }
+      additionalUpdates.invoiceNo = finalInvoiceNo;
+      additionalUpdates.cgst = 0;
+      additionalUpdates.sgst = 0;
+      additionalUpdates.totalGst = 0;
+      additionalUpdates.netTotal = sub;
+    } else {
+      // Must be GST sequence (either formatted with prefix like HS/26/00001 or numeric < 10000)
+      const isCurrentlyNonGstSeq = /^\d+$/.test(String(finalInvoiceNo).trim()) && parseInt(finalInvoiceNo, 10) >= 10000;
+      if (isCurrentlyNonGstSeq) {
+        if (bill.gstInvoiceNo && (!/^\d+$/.test(String(bill.gstInvoiceNo).trim()) || parseInt(bill.gstInvoiceNo, 10) < 10000)) {
+          finalInvoiceNo = bill.gstInvoiceNo;
+        } else {
+          const { nextInvoiceNo } = await generateNextInvoiceNo(bill.hotelId, bill.hotelName, false);
+          finalInvoiceNo = nextInvoiceNo;
+          additionalUpdates.gstInvoiceNo = nextInvoiceNo;
+        }
+      }
+      additionalUpdates.invoiceNo = finalInvoiceNo;
+      const rate = sub >= 1000 ? 0.025 : 0;
+      const cgst = Math.round(sub * rate * 100) / 100;
+      const sgst = Math.round(sub * rate * 100) / 100;
+      const totalGst = Math.round((cgst + sgst) * 100) / 100;
+      additionalUpdates.cgst = cgst;
+      additionalUpdates.sgst = sgst;
+      additionalUpdates.totalGst = totalGst;
+      additionalUpdates.netTotal = Math.round((sub + totalGst) * 100) / 100;
+    }
+
+    if (req.body.amountInWords) {
+      additionalUpdates.amountInWords = req.body.amountInWords;
+    }
+
+    const closed = await db.checkoutBill(req.params.id, additionalUpdates);
     if (!closed) {
       return res.status(404).json({ success: false, message: 'Bill not found.' });
     }
@@ -274,7 +384,7 @@ router.post('/:id/checkout', async (req, res) => {
 
     res.json({
       success: true,
-      message: `Guest checked out! Invoice ${closed.invoiceNo} closed. Room ${closed.roomNumber} entered 30-min housekeeping.`,
+      message: `Guest checked out! Invoice ${closed.invoiceNo} finalized as ${closed.isNonGST ? 'Non-GST Bill' : 'Tax Invoice'}. Room ${closed.roomNumber} entered 30-min housekeeping.`,
       bill: closed
     });
   } catch (err) {
