@@ -1333,13 +1333,6 @@ export default function ManagerWorkspace({ hotel, token, onLogout, onNavigateAdm
                         + Switch to Blank New Bill
                       </button>
                     )}
-                    <button
-                      onClick={() => setBillingMode('closed')}
-                      className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 border border-slate-200 rounded-xl transition flex items-center gap-1"
-                    >
-                      <Archive className="w-3.5 h-3.5" />
-                      <span>Closed Bills ({closedBills.length})</span>
-                    </button>
                   </div>
                 </div>
 
@@ -1357,7 +1350,7 @@ export default function ManagerWorkspace({ hotel, token, onLogout, onNavigateAdm
                     onCheckoutSuccess={() => {
                       loadWorkspaceData();
                       setEditingBill(null);
-                      setBillingMode('closed');
+                      setBillingMode('hub');
                     }}
                   />
                 </div>
